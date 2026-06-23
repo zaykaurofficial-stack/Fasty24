@@ -1,73 +1,110 @@
+'use client';
+import { useState } from 'react';
 import Image from 'next/image';
-import Link from 'next/link';
 
 interface ServiceCardProps {
   id: string;
   name: string;
-  description: string;
+  description?: string;
   image: string;
-  icon: string;
-  priceFrom: number;
-  rating: number;
-  bookings: string;
-  tags: string[];
+  categoryName?: string;
+  options?: { label: string; price: number; duration: number }[];
+  included?: string[];
+  excluded?: string[];
+  partsUsed?: string[];
 }
 
-export default function ServiceCard({
-  id,
-  name,
-  description,
-  image,
-  icon,
-  priceFrom,
-  rating,
-  bookings,
-  tags,
+export default function ServiceCard({ 
+  id, 
+  name, 
+  description, 
+  image, 
+  categoryName = 'Service', 
+  options = [], 
+  included = [],
+  excluded = [],
+  partsUsed = []
 }: ServiceCardProps) {
+  const [isModalOpen, setIsModalOpen] = useState(false);
+
   return (
-    <Link
-      href={`/categories?cat=${id}`}
-      className="group block bg-white rounded-2xl overflow-hidden border border-gray-100 shadow-sm hover:shadow-xl hover:border-fasty-yellow/50 hover:-translate-y-1 transition-all duration-300"
-    >
-      <div className="relative h-48 overflow-hidden">
-        <Image
-          src={image}
-          alt={name}
-          fill
-          className="object-cover group-hover:scale-105 transition-transform duration-500"
-          sizes="(max-width: 768px) 100vw, 33vw"
-        />
-        <div className="absolute inset-0 bg-gradient-to-t from-black/70 via-black/20 to-transparent" />
-        <div className="absolute top-3 left-3 bg-fasty-yellow text-fasty-black text-xs font-bold px-3 py-1 rounded-full">
-          From ₹{priceFrom}
+    <>
+      <div className="group relative flex flex-col h-full bg-[#1c1c1c] border border-white/5 rounded-3xl overflow-hidden hover:border-yellow-500/50 transition-all duration-300 shadow-xl cursor-pointer">
+        {/* Image Section */}
+        <div className="relative h-48 w-full overflow-hidden">
+          <Image src={image} alt={name} fill className="object-cover transition-transform duration-700 group-hover:scale-105" />
+          <div className="absolute inset-0 bg-gradient-to-t from-[#1c1c1c] via-transparent to-transparent" />
         </div>
-        <div className="absolute bottom-3 left-3 right-3">
-          <span className="text-2xl">{icon}</span>
-          <h3 className="text-white font-bold text-lg mt-1">{name}</h3>
-        </div>
-      </div>
-      <div className="p-5">
-        <p className="text-sm text-fasty-gray line-clamp-2 leading-relaxed">{description}</p>
-        <div className="flex flex-wrap gap-1.5 mt-3">
-          {tags.map((tag) => (
-            <span
-              key={tag}
-              className="text-xs bg-fasty-light text-fasty-black/80 px-2.5 py-0.5 rounded-full font-medium"
-            >
-              {tag}
-            </span>
-          ))}
-        </div>
-        <div className="flex items-center justify-between mt-4 pt-4 border-t border-gray-100">
-          <div className="flex items-center gap-2 text-sm">
-            <span className="text-fasty-yellow font-bold">★ {rating}</span>
-            <span className="text-fasty-gray">· {bookings} bookings</span>
+
+        {/* Content Section */}
+        <div className="p-5 flex flex-col flex-1">
+          <span className="text-[10px] font-bold text-yellow-500 uppercase tracking-widest">{categoryName}</span>
+          <h3 className="text-lg font-bold text-white mt-1 mb-2">{name}</h3>
+          <p className="text-xs text-gray-400 mb-4 line-clamp-2">{description}</p>
+
+          <div className="space-y-2 mb-4">
+            {options?.slice(0, 2).map((opt, idx) => (
+              <div key={idx} className="flex justify-between items-center bg-black/40 px-3 py-2 rounded-lg">
+                <span className="text-xs text-gray-200 font-medium">{opt.label}</span>
+                <span className="text-sm font-bold text-white">₹{opt.price}</span>
+              </div>
+            ))}
           </div>
-          <span className="text-fasty-yellow font-bold group-hover:translate-x-1 transition-transform">
-            Book →
-          </span>
+
+          <div className="mt-auto flex items-center justify-between">
+            <button 
+              onClick={(e) => { e.preventDefault(); e.stopPropagation(); setIsModalOpen(true); }} 
+              className="text-xs text-gray-500 hover:text-white underline"
+            >
+              View Details
+            </button>
+            <button className="bg-yellow-500 text-black px-4 py-1.5 rounded-full text-xs font-bold hover:bg-white transition-colors">
+              ADD
+            </button>
+          </div>
         </div>
       </div>
-    </Link>
+
+      {/* Details Modal */}
+      {isModalOpen && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/80 backdrop-blur-sm" onClick={() => setIsModalOpen(false)}>
+          <div className="bg-[#1c1c1c] border border-white/10 p-6 rounded-3xl max-w-sm w-full max-h-[80vh] overflow-y-auto" onClick={e => e.stopPropagation()}>
+            <h2 className="text-xl font-bold text-white mb-4">{name}</h2>
+            
+            {/* Included */}
+            {included.length > 0 && (
+              <div className="mb-4">
+                <h4 className="text-yellow-500 font-bold text-sm mb-2">✓ What's included:</h4>
+                <ul className="text-gray-400 text-xs space-y-1">
+                  {included.map((item, i) => <li key={i}>• {item}</li>)}
+                </ul>
+              </div>
+            )}
+
+            {/* Excluded */}
+            {excluded.length > 0 && (
+              <div className="mb-4">
+                <h4 className="text-red-500 font-bold text-sm mb-2">✕ What's excluded:</h4>
+                <ul className="text-gray-400 text-xs space-y-1">
+                  {excluded.map((item, i) => <li key={i}>• {item}</li>)}
+                </ul>
+              </div>
+            )}
+
+            {/* Parts */}
+            {partsUsed.length > 0 && (
+              <div className="mb-6">
+                <h4 className="text-blue-500 font-bold text-sm mb-2">⚙ Parts used:</h4>
+                <p className="text-gray-400 text-xs">{partsUsed.join(', ')}</p>
+              </div>
+            )}
+
+            <button onClick={() => setIsModalOpen(false)} className="w-full bg-white text-black py-2 rounded-xl font-bold hover:bg-gray-200 transition-colors">
+              Close
+            </button>
+          </div>
+        </div>
+      )}
+    </>
   );
 }

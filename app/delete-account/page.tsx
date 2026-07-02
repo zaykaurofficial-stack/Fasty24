@@ -8,7 +8,7 @@ export const metadata: Metadata = {
 };
 
 const LAST_UPDATED = 'July 3, 2026';
-const DELETE_EMAIL = 'hello@fasty24.com';
+const DELETE_EMAIL = 'fasty24official@gmail.com';
 
 function Section({ title, children }: { title: string; children: React.ReactNode }) {
   return (

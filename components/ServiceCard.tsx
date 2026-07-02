@@ -1,110 +1,88 @@
 'use client';
-import { useState } from 'react';
-import Image from 'next/image';
+
+import Link from 'next/link';
 
 interface ServiceCardProps {
   id: string;
+  slug?: string;
   name: string;
   description?: string;
-  image: string;
+  shortDescription?: string;
+  imageUrl?: string;
+  price?: number;
+  durationMin?: number;
   categoryName?: string;
-  options?: { label: string; price: number; duration: number }[];
-  included?: string[];
-  excluded?: string[];
-  partsUsed?: string[];
+  inclusions?: string[];
 }
 
-export default function ServiceCard({ 
-  id, 
-  name, 
-  description, 
-  image, 
-  categoryName = 'Service', 
-  options = [], 
-  included = [],
-  excluded = [],
-  partsUsed = []
+export default function ServiceCard({
+  id,
+  slug,
+  name,
+  description,
+  shortDescription,
+  imageUrl,
+  price,
+  durationMin,
+  categoryName = 'Service',
+  inclusions = [],
 }: ServiceCardProps) {
-  const [isModalOpen, setIsModalOpen] = useState(false);
+  const href = `/services/${slug || id}`;
+  const displayDesc = shortDescription || description || 'Professional service by verified experts at your doorstep.';
 
   return (
-    <>
-      <div className="group relative flex flex-col h-full bg-[#1c1c1c] border border-white/5 rounded-3xl overflow-hidden hover:border-yellow-500/50 transition-all duration-300 shadow-xl cursor-pointer">
-        {/* Image Section */}
-        <div className="relative h-48 w-full overflow-hidden">
-          <Image src={image} alt={name} fill className="object-cover transition-transform duration-700 group-hover:scale-105" />
-          <div className="absolute inset-0 bg-gradient-to-t from-[#1c1c1c] via-transparent to-transparent" />
-        </div>
-
-        {/* Content Section */}
-        <div className="p-5 flex flex-col flex-1">
-          <span className="text-[10px] font-bold text-yellow-500 uppercase tracking-widest">{categoryName}</span>
-          <h3 className="text-lg font-bold text-white mt-1 mb-2">{name}</h3>
-          <p className="text-xs text-gray-400 mb-4 line-clamp-2">{description}</p>
-
-          <div className="space-y-2 mb-4">
-            {options?.slice(0, 2).map((opt, idx) => (
-              <div key={idx} className="flex justify-between items-center bg-black/40 px-3 py-2 rounded-lg">
-                <span className="text-xs text-gray-200 font-medium">{opt.label}</span>
-                <span className="text-sm font-bold text-white">₹{opt.price}</span>
-              </div>
-            ))}
+    <Link href={href} className="group relative flex flex-col h-full bg-[#141414] border border-white/8 rounded-3xl overflow-hidden hover:border-fasty-yellow/40 transition-all duration-500 hover:-translate-y-1 hover:shadow-[0_20px_40px_-15px_rgba(255,196,0,0.15)] cursor-pointer">
+      {/* Image */}
+      <div className="relative h-52 w-full overflow-hidden bg-[#1a1a1a]">
+        {imageUrl ? (
+          /* eslint-disable-next-line @next/next/no-img-element */
+          <img
+            src={imageUrl}
+            alt={name}
+            className="w-full h-full object-cover transition-transform duration-700 group-hover:scale-105"
+            loading="lazy"
+          />
+        ) : (
+          <div className="w-full h-full flex items-center justify-center bg-gradient-to-br from-white/5 to-transparent">
+            <span className="text-5xl opacity-40">🛠️</span>
           </div>
-
-          <div className="mt-auto flex items-center justify-between">
-            <button 
-              onClick={(e) => { e.preventDefault(); e.stopPropagation(); setIsModalOpen(true); }} 
-              className="text-xs text-gray-500 hover:text-white underline"
-            >
-              View Details
-            </button>
-            <button className="bg-yellow-500 text-black px-4 py-1.5 rounded-full text-xs font-bold hover:bg-white transition-colors">
-              ADD
-            </button>
-          </div>
-        </div>
+        )}
+        <div className="absolute inset-0 bg-gradient-to-t from-[#141414] via-[#141414]/30 to-transparent" />
+        {price !== undefined && (
+          <span className="absolute top-3 left-3 bg-fasty-yellow text-fasty-black text-xs font-extrabold px-3 py-1.5 rounded-full shadow-[0_0_15px_rgba(255,196,0,0.4)]">
+            From ₹{price}
+          </span>
+        )}
       </div>
 
-      {/* Details Modal */}
-      {isModalOpen && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/80 backdrop-blur-sm" onClick={() => setIsModalOpen(false)}>
-          <div className="bg-[#1c1c1c] border border-white/10 p-6 rounded-3xl max-w-sm w-full max-h-[80vh] overflow-y-auto" onClick={e => e.stopPropagation()}>
-            <h2 className="text-xl font-bold text-white mb-4">{name}</h2>
-            
-            {/* Included */}
-            {included.length > 0 && (
-              <div className="mb-4">
-                <h4 className="text-yellow-500 font-bold text-sm mb-2">✓ What's included:</h4>
-                <ul className="text-gray-400 text-xs space-y-1">
-                  {included.map((item, i) => <li key={i}>• {item}</li>)}
-                </ul>
-              </div>
-            )}
+      {/* Content */}
+      <div className="p-5 flex flex-col flex-1">
+        <span className="text-[10px] font-bold text-fasty-yellow uppercase tracking-widest mb-1.5">{categoryName}</span>
+        <h3 className="text-base font-bold text-white mb-2 leading-snug group-hover:text-fasty-yellow transition-colors duration-300">
+          {name}
+        </h3>
+        <p className="text-xs text-gray-400 mb-4 line-clamp-2 leading-relaxed">{displayDesc}</p>
 
-            {/* Excluded */}
-            {excluded.length > 0 && (
-              <div className="mb-4">
-                <h4 className="text-red-500 font-bold text-sm mb-2">✕ What's excluded:</h4>
-                <ul className="text-gray-400 text-xs space-y-1">
-                  {excluded.map((item, i) => <li key={i}>• {item}</li>)}
-                </ul>
-              </div>
-            )}
+        {inclusions.length > 0 && (
+          <ul className="space-y-1.5 mb-4">
+            {inclusions.slice(0, 2).map((inc, i) => (
+              <li key={i} className="flex items-center gap-2 text-xs text-gray-400">
+                <span className="text-fasty-yellow shrink-0">✓</span>
+                <span className="line-clamp-1">{inc}</span>
+              </li>
+            ))}
+          </ul>
+        )}
 
-            {/* Parts */}
-            {partsUsed.length > 0 && (
-              <div className="mb-6">
-                <h4 className="text-blue-500 font-bold text-sm mb-2">⚙ Parts used:</h4>
-                <p className="text-gray-400 text-xs">{partsUsed.join(', ')}</p>
-              </div>
-            )}
-
-            <button onClick={() => setIsModalOpen(false)} className="w-full bg-white text-black py-2 rounded-xl font-bold hover:bg-gray-200 transition-colors">
-              Close
-            </button>
-          </div>
+        <div className="mt-auto flex items-center justify-between pt-3 border-t border-white/5">
+          {durationMin && (
+            <span className="text-xs text-gray-500">~{durationMin} min</span>
+          )}
+          <span className="ml-auto text-xs font-bold text-fasty-yellow group-hover:translate-x-0.5 transition-transform">
+            View Details →
+          </span>
         </div>
-      )}
-    </>
+      </div>
+    </Link>
   );
 }

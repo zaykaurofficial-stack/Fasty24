@@ -80,3 +80,26 @@ export const STATS = [
   { value: '500+', label: 'Verified staff' },
   { value: '4.8★', label: 'Average rating' },
 ];
+
+const ACCENT_MAP: Record<string, string> = {
+  'ac-service': 'from-blue-400/40 to-cyan-500/40',
+  'ro-service': 'from-cyan-400/40 to-teal-500/40',
+  'instant-maid': 'from-emerald-400/40 to-green-500/40',
+  fridge: 'from-blue-500/40 to-indigo-500/40',
+  chimney: 'from-gray-500/40 to-slate-600/40',
+  'bathroom-cleaning': 'from-teal-400/40 to-cyan-600/40',
+};
+
+export function accentFor(slug?: string): string {
+  if (slug && ACCENT_MAP[slug]) return ACCENT_MAP[slug];
+  return 'from-fasty-yellow/30 to-amber-400/30';
+}
+
+export const SERVICE_ICONS: Record<string, string> = {
+  'ac-service': '❄️',
+  'ro-service': '💧',
+  'instant-maid': '🧹',
+  fridge: '🧊',
+  chimney: '🔥',
+  'bathroom-cleaning': '🚿',
+};

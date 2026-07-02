@@ -1,5 +1,20 @@
-export const API_URL = process.env.NEXT_PUBLIC_API_URL ?? 'http://localhost:3000/api/v1';
-export const SOCKET_URL = process.env.NEXT_PUBLIC_SOCKET_URL ?? 'http://localhost:3000';
+function readPublicEnv(nextKey: string, expoKey: string, fallback: string): string {
+  const value = process.env[nextKey] ?? process.env[expoKey];
+  return value && value.trim() ? value.trim() : fallback;
+}
+
+// Same-origin /api/v1 is proxied by next.config.js rewrites — avoids CORS when
+// opening the app via network IP (e.g. 192.168.x.x:3001) instead of localhost.
+export const API_URL = readPublicEnv(
+  'NEXT_PUBLIC_API_URL',
+  'EXPO_PUBLIC_API_URL',
+  '/api/v1',
+);
+export const SOCKET_URL = readPublicEnv(
+  'NEXT_PUBLIC_SOCKET_URL',
+  'EXPO_PUBLIC_SOCKET_URL',
+  'http://localhost:3000',
+);
 
 export const theme = {
   yellow: '#FFC400',

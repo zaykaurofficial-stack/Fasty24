@@ -1,123 +1,343 @@
 'use client';
 
-import { useState, Suspense } from 'react';
-import { useSearchParams, useRouter } from 'next/navigation';
-import Image from 'next/image';
+import { useState, useEffect, Suspense } from 'react';
+import { useParams, useRouter } from 'next/navigation';
 import Link from 'next/link';
+import {
+  getService,
+  getSlots,
+  getMe,
+  getUser,
+  createBooking,
+  Service,
+  Slot,
+  Address,
+  errorMessage,
+} from '@/lib/api';
+import { toast } from '@/lib/toast';
 
-function BookingFlow() {
-  const searchParams = useSearchParams();
+const DEFAULT_LAT = 28.6139;
+const DEFAULT_LNG = 77.209;
+
+function getNextDays(n: number) {
+  const days = [];
+  for (let i = 0; i < n; i++) {
+    const d = new Date();
+    d.setDate(d.getDate() + i);
+    days.push({
+      label: i === 0 ? 'Today' : i === 1 ? 'Tomorrow' : d.toLocaleDateString('en-IN', { weekday: 'short', day: 'numeric', month: 'short' }),
+      value: d.toISOString().split('T')[0],
+    });
+  }
+  return days;
+}
+
+function BookFlow() {
+  const { serviceId } = useParams<{ serviceId: string }>();
   const router = useRouter();
-  
-  // Get service details from URL
-  const name = searchParams.get('name') || 'Premium Home Service';
-  const cat = searchParams.get('cat') || 'Fasty-24 Services';
-  const img = searchParams.get('img') || 'https://images.unsplash.com/photo-1581578731548-c64695cc6952?w=800&q=80';
-  
-  const [step, setStep] = useState(1);
-  const [selectedTime, setSelectedTime] = useState('');
-  const [selectedDate, setSelectedDate] = useState('Today');
 
-  const handleNext = () => setStep((prev) => Math.min(prev + 1, 3));
-  const handleBack = () => setStep((prev) => Math.max(prev - 1, 1));
+  const [step, setStep] = useState<1 | 2 | 3>(1);
+  const [service, setService] = useState<Service | null>(null);
+  const [loadingService, setLoadingService] = useState(true);
+
+  // Scheduling
+  const [bookingType, setBookingType] = useState<'instant' | 'scheduled'>('instant');
+  const [selectedDate, setSelectedDate] = useState(getNextDays(1)[0].value);
+  const [slots, setSlots] = useState<Slot[]>([]);
+  const [loadingSlots, setLoadingSlots] = useState(false);
+  const [selectedSlot, setSelectedSlot] = useState<Slot | null>(null);
+
+  // Address
+  const [savedAddresses, setSavedAddresses] = useState<Address[]>([]);
+  const [selectedAddressId, setSelectedAddressId] = useState<string | null>(null);
+  const [useNewAddr, setUseNewAddr] = useState(false);
+  const [newLine1, setNewLine1] = useState('');
+  const [newCity, setNewCity] = useState('Delhi');
+  const [newPincode, setNewPincode] = useState('');
+
+  const [submitting, setSubmitting] = useState(false);
+
+  const days = getNextDays(5);
+
+  // Auth guard + fetch service + addresses
+  useEffect(() => {
+    if (!getUser()) {
+      router.push(`/login?redirect=/book/${serviceId}`);
+      return;
+    }
+    Promise.all([
+      getService(serviceId).catch(() => null),
+      getMe().catch(() => null),
+    ]).then(([svc, meRes]) => {
+      if (svc) setService(svc);
+      else { toast('Service not found', 'error'); router.push('/categories'); }
+
+      if (meRes) {
+        const addrs = meRes.principal.addresses ?? [];
+        setSavedAddresses(addrs);
+        const def = addrs.find((a) => a.isDefault);
+        if (def) { setSelectedAddressId(def.id); setUseNewAddr(false); }
+        else if (addrs.length) { setSelectedAddressId(addrs[0].id); setUseNewAddr(false); }
+        else setUseNewAddr(true);
+      }
+    }).finally(() => setLoadingService(false));
+  }, [serviceId, router]);
+
+  // Fetch slots when switching to scheduled or changing date
+  useEffect(() => {
+    if (bookingType !== 'scheduled' || !service || !selectedDate) return;
+    setLoadingSlots(true);
+    setSelectedSlot(null);
+    const addr = savedAddresses.find((a) => a.id === selectedAddressId);
+    const lat = addr?.lat ?? DEFAULT_LAT;
+    const lng = addr?.lng ?? DEFAULT_LNG;
+    getSlots({ serviceId: service.id, date: selectedDate, lat, lng })
+      .then((res) => setSlots(res.slots.filter((s) => s.available)))
+      .catch(() => setSlots([]))
+      .finally(() => setLoadingSlots(false));
+  }, [bookingType, selectedDate, service, selectedAddressId, savedAddresses]);
+
+  async function handleBook() {
+    if (!service) return;
+    if (bookingType === 'scheduled' && !selectedSlot) {
+      toast('Please select a time slot', 'error');
+      return;
+    }
+    const addr = buildAddress();
+    if (!addr) { toast('Please provide a delivery address', 'error'); return; }
+
+    setSubmitting(true);
+    try {
+      const booking = await createBooking({
+        serviceIds: [service.id],
+        location: addr,
+        bookingType,
+        slotId: selectedSlot?.slotId,
+        date: bookingType === 'scheduled' ? selectedDate : undefined,
+      });
+      toast('Booking confirmed! 🎉', 'success');
+      router.push(`/bookings/${booking.id}`);
+    } catch (err) {
+      toast(errorMessage(err), 'error');
+    } finally {
+      setSubmitting(false);
+    }
+  }
+
+  function buildAddress(): { address: string; lat: number; lng: number } | null {
+    if (useNewAddr) {
+      if (!newLine1.trim()) return null;
+      return { address: `${newLine1}, ${newCity} ${newPincode}`.trim(), lat: DEFAULT_LAT, lng: DEFAULT_LNG };
+    }
+    const a = savedAddresses.find((x) => x.id === selectedAddressId);
+    if (!a) return null;
+    return {
+      address: [a.line1, a.line2, a.city, a.pincode].filter(Boolean).join(', '),
+      lat: a.lat ?? DEFAULT_LAT,
+      lng: a.lng ?? DEFAULT_LNG,
+    };
+  }
+
+  const totalPrice = service ? Math.round(service.price * 1.18) : 0;
+  const tax = service ? totalPrice - service.price : 0;
+
+  if (loadingService) {
+    return (
+      <div className="min-h-screen bg-fasty-black flex items-center justify-center">
+        <div className="flex flex-col items-center gap-4">
+          <div className="w-10 h-10 border-2 border-fasty-yellow/20 border-t-fasty-yellow rounded-full animate-spin" />
+          <p className="text-gray-400 text-sm">Loading service details…</p>
+        </div>
+      </div>
+    );
+  }
+
+  if (!service) return null;
 
   return (
-    <main className="min-h-screen bg-fasty-black pt-24 pb-32 relative overflow-hidden flex flex-col items-center">
-      
-      {/* Ambient background glows */}
-      <div className="absolute top-20 left-0 w-96 h-96 bg-[#F97316]/10 blur-[120px] rounded-full pointer-events-none" />
-      <div className="absolute bottom-0 right-0 w-96 h-96 bg-white/5 blur-[100px] rounded-full pointer-events-none" />
+    <main className="min-h-screen bg-fasty-black pt-24 pb-32 relative overflow-hidden">
+      <div className="absolute top-20 left-0 w-80 h-80 bg-fasty-yellow/5 blur-[100px] rounded-full pointer-events-none" />
+      <div className="absolute bottom-0 right-0 w-96 h-96 bg-white/3 blur-[120px] rounded-full pointer-events-none" />
 
-      <div className="w-full max-w-3xl px-4 sm:px-6 relative z-10 animate-fade-up">
-        
-        {/* Header & Progress Bar */}
-        <div className="mb-10">
-          <button onClick={() => step === 1 ? router.back() : handleBack()} className="text-gray-400 hover:text-[#F97316] transition-colors mb-6 flex items-center gap-2 font-medium">
-            <span>←</span> {step === 1 ? 'Back to Services' : 'Previous Step'}
+      <div className="max-w-3xl mx-auto px-4 sm:px-6 relative z-10">
+        {/* Back + Progress */}
+        <div className="mb-8">
+          <button
+            onClick={() => step === 1 ? router.back() : setStep((prev) => (prev - 1) as 1 | 2 | 3)}
+            className="text-gray-400 hover:text-fasty-yellow transition-colors mb-5 flex items-center gap-2 text-sm font-medium"
+          >
+            <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 19l-7-7m0 0l7-7m-7 7h18" />
+            </svg>
+            {step === 1 ? 'Back to service' : 'Previous step'}
           </button>
-          
-          <div className="flex justify-between items-end mb-4">
-            <h1 className="text-3xl md:text-4xl font-extrabold text-white tracking-tight">Complete your booking</h1>
-            <span className="text-[#F97316] font-bold text-sm bg-[#F97316]/10 px-3 py-1 rounded-full border border-[#F97316]/20">Step {step} of 3</span>
-          </div>
 
-          {/* Progress Indicator */}
-          <div className="h-2 w-full bg-white/10 rounded-full overflow-hidden flex">
-            <div className={`h-full bg-[#F97316] transition-all duration-500 ease-out ${step === 1 ? 'w-1/3' : step === 2 ? 'w-2/3' : 'w-full'}`} />
+          <div className="flex justify-between items-center mb-4">
+            <h1 className="text-2xl md:text-3xl font-extrabold text-white">Complete your booking</h1>
+            <span className="text-fasty-yellow text-xs font-bold bg-fasty-yellow/10 border border-fasty-yellow/20 px-3 py-1.5 rounded-full">
+              Step {step} of 3
+            </span>
+          </div>
+          <div className="h-1.5 w-full bg-white/8 rounded-full overflow-hidden">
+            <div
+              className="h-full bg-fasty-yellow transition-all duration-500 ease-out"
+              style={{ width: `${(step / 3) * 100}%` }}
+            />
           </div>
         </div>
 
-        {/* Main Glassmorphic Card */}
-        <div className="bg-white/5 backdrop-blur-xl border border-white/10 rounded-[2rem] p-6 sm:p-10 shadow-2xl">
-          
-          {/* STEP 1: Service Summary */}
+        {/* Card */}
+        <div className="bg-white/4 backdrop-blur-xl border border-white/10 rounded-3xl p-6 sm:p-8 shadow-2xl animate-fade-up">
+
+          {/* ─── STEP 1: Service Summary ─── */}
           {step === 1 && (
-            <div className="space-y-8 animate-fade-up">
-              <div className="flex flex-col sm:flex-row gap-6 items-center sm:items-start bg-fasty-black/50 p-4 rounded-2xl border border-white/5">
-                <div className="relative w-full sm:w-32 h-32 rounded-xl overflow-hidden shrink-0">
-                  <Image src={img} alt={name} fill className="object-cover" />
-                </div>
-                <div className="flex-1 text-center sm:text-left">
-                  <span className="text-xs font-bold text-[#F97316] uppercase tracking-widest">{cat}</span>
-                  <h2 className="text-2xl font-bold text-white mt-1 mb-2">{name}</h2>
-                  <p className="text-gray-400 text-sm leading-relaxed mb-4">Background verified professional will arrive with genuine parts and equipment.</p>
-                  <div className="inline-block bg-white/10 text-white px-4 py-1.5 rounded-lg text-sm font-semibold">
-                    Estimated Time: 45-60 mins
+            <div className="space-y-6">
+              <div className="flex gap-5 bg-fasty-black/50 p-4 rounded-2xl border border-white/5">
+                {service.imageUrl ? (
+                  /* eslint-disable-next-line @next/next/no-img-element */
+                  <img
+                    src={service.imageUrl}
+                    alt={service.name}
+                    className="w-24 h-24 rounded-xl object-cover shrink-0"
+                  />
+                ) : (
+                  <div className="w-24 h-24 rounded-xl bg-white/5 flex items-center justify-center shrink-0">
+                    <span className="text-3xl opacity-40">🛠️</span>
                   </div>
+                )}
+                <div>
+                  <p className="text-xs font-bold text-fasty-yellow uppercase tracking-widest mb-1">
+                    {service.categories?.[0] || 'Service'}
+                  </p>
+                  <h2 className="text-xl font-bold text-white mb-2">{service.name}</h2>
+                  <p className="text-sm text-gray-400 leading-relaxed line-clamp-2">
+                    {service.shortDescription || service.description || 'Professional service by verified experts.'}
+                  </p>
                 </div>
               </div>
 
-              <div className="pt-6 border-t border-white/5 flex justify-between items-center">
-                <div>
-                  <p className="text-gray-400 text-sm mb-1">Service Total</p>
-                  <p className="text-3xl font-extrabold text-white">₹499</p>
+              {service.inclusions.length > 0 && (
+                <div className="bg-fasty-black/30 rounded-2xl p-4 border border-white/5">
+                  <p className="text-xs font-bold text-gray-400 uppercase tracking-wider mb-3">What&apos;s included</p>
+                  <ul className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                    {service.inclusions.map((inc, i) => (
+                      <li key={i} className="flex items-center gap-2 text-sm text-gray-300">
+                        <span className="text-fasty-yellow text-xs">✓</span>
+                        {inc}
+                      </li>
+                    ))}
+                  </ul>
                 </div>
-                <button onClick={handleNext} className="bg-[#F97316] text-white font-extrabold px-8 py-4 rounded-xl hover:bg-orange-600 hover:scale-105 transition-all duration-300 shadow-[0_4px_20px_rgba(249,115,22,0.3)]">
+              )}
+
+              <div className="flex items-center justify-between pt-4 border-t border-white/8">
+                <div>
+                  <p className="text-gray-500 text-sm">Service total</p>
+                  <p className="text-4xl font-extrabold text-white">₹{service.price}</p>
+                  <p className="text-xs text-gray-500 mt-0.5">+18% GST = ₹{totalPrice}</p>
+                </div>
+                <button
+                  onClick={() => setStep(2)}
+                  className="bg-fasty-yellow text-fasty-black font-extrabold px-7 py-3.5 rounded-xl hover:bg-yellow-400 hover:scale-105 transition-all duration-300 shadow-[0_4px_20px_rgba(255,196,0,0.3)]"
+                >
                   Select Time →
                 </button>
               </div>
             </div>
           )}
 
-          {/* STEP 2: Date & Time Selection */}
+          {/* ─── STEP 2: Schedule ─── */}
           {step === 2 && (
-            <div className="space-y-8 animate-fade-up">
+            <div className="space-y-6">
               <div>
-                <h3 className="text-xl font-bold text-white mb-4">When do you need it?</h3>
-                <div className="flex gap-3 overflow-x-auto pb-2 scrollbar-hide">
-                  {['Today', 'Tomorrow', 'Day after'].map((day) => (
-                    <button 
-                      key={day}
-                      onClick={() => setSelectedDate(day)}
-                      className={`whitespace-nowrap px-6 py-3 rounded-xl font-bold transition-all ${selectedDate === day ? 'bg-[#F97316] text-white shadow-lg' : 'bg-fasty-black/50 text-gray-400 border border-white/10 hover:border-[#F97316]/50'}`}
+                <h3 className="text-lg font-bold text-white mb-4">Booking type</h3>
+                <div className="grid grid-cols-2 gap-3">
+                  {(['instant', 'scheduled'] as const).map((type) => (
+                    <button
+                      key={type}
+                      onClick={() => setBookingType(type)}
+                      className={`px-4 py-3.5 rounded-xl font-bold text-sm transition-all ${
+                        bookingType === type
+                          ? 'bg-fasty-yellow text-fasty-black shadow-[0_0_15px_rgba(255,196,0,0.3)]'
+                          : 'bg-white/5 border border-white/10 text-gray-300 hover:border-fasty-yellow/40'
+                      }`}
                     >
-                      {day}
+                      {type === 'instant' ? '⚡ Instant (15-20 min)' : '📅 Schedule ahead'}
                     </button>
                   ))}
                 </div>
               </div>
 
-              <div>
-                <h3 className="text-xl font-bold text-white mb-4">Select arrival time</h3>
-                <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
-                  {['Within 30 mins (Fast Track)', '09:00 AM', '11:30 AM', '02:00 PM', '04:30 PM', '06:00 PM'].map((time, idx) => (
-                    <button 
-                      key={time}
-                      onClick={() => setSelectedTime(time)}
-                      className={`px-4 py-3 rounded-xl text-sm font-semibold transition-all flex items-center justify-center text-center ${selectedTime === time ? 'bg-[#F97316] text-white shadow-[0_0_15px_rgba(249,115,22,0.4)]' : 'bg-fasty-black/50 text-gray-300 border border-white/10 hover:bg-white/10'} ${idx === 0 ? 'col-span-2 sm:col-span-3 border-[#F97316]/40' : ''}`}
-                    >
-                      {idx === 0 && <span className="mr-2 animate-pulse">⚡</span>}
-                      {time}
-                    </button>
-                  ))}
-                </div>
-              </div>
+              {bookingType === 'scheduled' && (
+                <>
+                  <div>
+                    <h3 className="text-lg font-bold text-white mb-3">Choose date</h3>
+                    <div className="flex gap-2 overflow-x-auto pb-1">
+                      {days.map((d) => (
+                        <button
+                          key={d.value}
+                          onClick={() => setSelectedDate(d.value)}
+                          className={`whitespace-nowrap px-5 py-2.5 rounded-xl text-sm font-semibold transition-all shrink-0 ${
+                            selectedDate === d.value
+                              ? 'bg-fasty-yellow text-fasty-black'
+                              : 'bg-white/5 border border-white/10 text-gray-400 hover:border-fasty-yellow/40 hover:text-white'
+                          }`}
+                        >
+                          {d.label}
+                        </button>
+                      ))}
+                    </div>
+                  </div>
 
-              <div className="pt-6 border-t border-white/5 flex justify-end">
-                <button 
-                  onClick={handleNext} 
-                  disabled={!selectedTime}
-                  className={`font-extrabold px-8 py-4 rounded-xl transition-all duration-300 ${selectedTime ? 'bg-[#F97316] text-white hover:bg-orange-600 hover:scale-105 shadow-[0_4px_20px_rgba(249,115,22,0.3)]' : 'bg-gray-700 text-gray-400 cursor-not-allowed'}`}
+                  <div>
+                    <h3 className="text-lg font-bold text-white mb-3">Available slots</h3>
+                    {loadingSlots ? (
+                      <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
+                        {Array.from({ length: 6 }).map((_, i) => (
+                          <div key={i} className="h-12 rounded-xl bg-white/5 animate-pulse" />
+                        ))}
+                      </div>
+                    ) : slots.length === 0 ? (
+                      <div className="bg-white/3 border border-white/8 rounded-xl p-6 text-center text-gray-500 text-sm">
+                        No slots available for this date. Try a different date.
+                      </div>
+                    ) : (
+                      <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
+                        {slots.map((slot) => (
+                          <button
+                            key={slot.slotId}
+                            onClick={() => setSelectedSlot(slot)}
+                            className={`px-4 py-3 rounded-xl text-sm font-semibold transition-all text-center ${
+                              selectedSlot?.slotId === slot.slotId
+                                ? 'bg-fasty-yellow text-fasty-black shadow-[0_0_12px_rgba(255,196,0,0.3)]'
+                                : 'bg-white/5 border border-white/10 text-gray-300 hover:border-fasty-yellow/40'
+                            }`}
+                          >
+                            {slot.window}
+                            <span className="block text-xs opacity-70 mt-0.5">{slot.remaining} left</span>
+                          </button>
+                        ))}
+                      </div>
+                    )}
+                  </div>
+                </>
+              )}
+
+              {bookingType === 'instant' && (
+                <div className="bg-fasty-yellow/10 border border-fasty-yellow/20 rounded-2xl p-5 flex items-start gap-4">
+                  <span className="text-2xl">⚡</span>
+                  <div>
+                    <p className="font-bold text-white mb-1">Instant Booking</p>
+                    <p className="text-sm text-gray-400">A verified professional will be dispatched within 15–20 minutes of booking confirmation.</p>
+                  </div>
+                </div>
+              )}
+
+              <div className="flex justify-end pt-2 border-t border-white/8">
+                <button
+                  onClick={() => setStep(3)}
+                  disabled={bookingType === 'scheduled' && !selectedSlot}
+                  className="bg-fasty-yellow text-fasty-black font-extrabold px-7 py-3.5 rounded-xl hover:bg-yellow-400 transition-all duration-300 disabled:opacity-40 disabled:cursor-not-allowed"
                 >
                   Enter Address →
                 </button>
@@ -125,45 +345,129 @@ function BookingFlow() {
             </div>
           )}
 
-          {/* STEP 3: Address & Checkout */}
+          {/* ─── STEP 3: Address + Confirm ─── */}
           {step === 3 && (
-            <div className="space-y-6 animate-fade-up">
-              <h3 className="text-xl font-bold text-white mb-2">Where should we arrive?</h3>
-              
-              <div className="space-y-4">
-                <div>
-                  <label className="block text-sm font-medium text-gray-400 mb-1">House/Flat Number</label>
-                  <input type="text" placeholder="e.g. Flat 402, Block B" className="w-full px-4 py-3 bg-fasty-black/50 border border-white/10 rounded-xl text-white focus:outline-none focus:border-[#F97316]/50 transition-colors" />
-                </div>
-                <div>
-                  <label className="block text-sm font-medium text-gray-400 mb-1">Landmark</label>
-                  <input type="text" placeholder="e.g. Near Apollo Pharmacy" className="w-full px-4 py-3 bg-fasty-black/50 border border-white/10 rounded-xl text-white focus:outline-none focus:border-[#F97316]/50 transition-colors" />
-                </div>
-              </div>
+            <div className="space-y-5">
+              <h3 className="text-lg font-bold text-white">Where should we arrive?</h3>
 
-              {/* Bill Summary */}
-              <div className="bg-fasty-black/50 p-5 rounded-2xl border border-white/5 mt-6">
-                <h4 className="text-white font-bold mb-4">Payment Summary</h4>
-                <div className="space-y-2 text-sm">
-                  <div className="flex justify-between text-gray-400"><span>{name}</span><span>₹499</span></div>
-                  <div className="flex justify-between text-gray-400"><span>Safety & Hygiene Fee</span><span>₹29</span></div>
-                  <div className="flex justify-between font-bold text-white pt-3 border-t border-white/10 text-lg">
-                    <span>Total Amount</span><span className="text-[#F97316]">₹528</span>
+              {savedAddresses.length > 0 && (
+                <div className="space-y-2">
+                  {savedAddresses.map((a) => (
+                    <button
+                      key={a.id}
+                      onClick={() => { setSelectedAddressId(a.id); setUseNewAddr(false); }}
+                      className={`w-full text-left px-4 py-3.5 rounded-xl border transition-all flex items-start gap-3 ${
+                        !useNewAddr && selectedAddressId === a.id
+                          ? 'border-fasty-yellow bg-fasty-yellow/8'
+                          : 'border-white/10 bg-white/3 hover:border-fasty-yellow/40'
+                      }`}
+                    >
+                      <span className={`mt-0.5 w-4 h-4 rounded-full border-2 flex items-center justify-center shrink-0 ${
+                        !useNewAddr && selectedAddressId === a.id ? 'border-fasty-yellow' : 'border-white/30'
+                      }`}>
+                        {!useNewAddr && selectedAddressId === a.id && (
+                          <span className="w-2 h-2 rounded-full bg-fasty-yellow block" />
+                        )}
+                      </span>
+                      <div>
+                        <p className="font-semibold text-white text-sm">{a.label}</p>
+                        <p className="text-xs text-gray-400 mt-0.5">
+                          {[a.line1, a.line2, a.city, a.pincode].filter(Boolean).join(', ')}
+                        </p>
+                      </div>
+                      {a.isDefault && (
+                        <span className="ml-auto text-[10px] font-bold text-fasty-yellow bg-fasty-yellow/10 px-2 py-0.5 rounded-full">Default</span>
+                      )}
+                    </button>
+                  ))}
+                  <button
+                    onClick={() => { setUseNewAddr(true); setSelectedAddressId(null); }}
+                    className={`w-full text-left px-4 py-3.5 rounded-xl border transition-all ${
+                      useNewAddr ? 'border-fasty-yellow bg-fasty-yellow/8' : 'border-white/10 bg-white/3 hover:border-fasty-yellow/40'
+                    }`}
+                  >
+                    <span className="text-sm text-fasty-yellow font-bold">+ Enter a new address</span>
+                  </button>
+                </div>
+              )}
+
+              {(useNewAddr || savedAddresses.length === 0) && (
+                <div className="space-y-3">
+                  <div>
+                    <label className="block text-xs font-bold text-gray-400 mb-1.5">Street Address</label>
+                    <input
+                      type="text"
+                      value={newLine1}
+                      onChange={(e) => setNewLine1(e.target.value)}
+                      placeholder="House no., street, landmark"
+                      className="w-full px-4 py-3.5 bg-fasty-black/60 border border-white/10 rounded-xl text-white focus:outline-none focus:border-fasty-yellow/60 transition-all placeholder:text-gray-600 text-sm"
+                    />
+                  </div>
+                  <div className="grid grid-cols-2 gap-3">
+                    <div>
+                      <label className="block text-xs font-bold text-gray-400 mb-1.5">City</label>
+                      <input
+                        type="text"
+                        value={newCity}
+                        onChange={(e) => setNewCity(e.target.value)}
+                        className="w-full px-4 py-3.5 bg-fasty-black/60 border border-white/10 rounded-xl text-white focus:outline-none focus:border-fasty-yellow/60 transition-all text-sm"
+                      />
+                    </div>
+                    <div>
+                      <label className="block text-xs font-bold text-gray-400 mb-1.5">Pincode</label>
+                      <input
+                        type="text"
+                        value={newPincode}
+                        onChange={(e) => setNewPincode(e.target.value)}
+                        placeholder="110001"
+                        className="w-full px-4 py-3.5 bg-fasty-black/60 border border-white/10 rounded-xl text-white focus:outline-none focus:border-fasty-yellow/60 transition-all placeholder:text-gray-600 text-sm"
+                      />
+                    </div>
                   </div>
                 </div>
+              )}
+
+              {/* Summary */}
+              <div className="bg-fasty-black/50 rounded-2xl p-5 border border-white/8 space-y-2">
+                <h4 className="font-bold text-white text-sm mb-3">Order Summary</h4>
+                <div className="flex justify-between text-sm text-gray-400">
+                  <span>{service.name}</span><span>₹{service.price}</span>
+                </div>
+                <div className="flex justify-between text-sm text-gray-400">
+                  <span>GST (18%)</span><span>₹{tax}</span>
+                </div>
+                {bookingType === 'scheduled' && selectedSlot && (
+                  <div className="flex justify-between text-sm text-gray-400">
+                    <span>Slot</span><span>{selectedSlot.window}</span>
+                  </div>
+                )}
+                <div className="flex justify-between text-base font-extrabold text-white pt-3 border-t border-white/10">
+                  <span>Total</span>
+                  <span className="text-fasty-yellow">₹{totalPrice}</span>
+                </div>
               </div>
 
-              <div className="pt-6 border-t border-white/5 text-center sm:text-right">
-                <Link href="/" className="inline-block w-full sm:w-auto bg-[#F97316] text-white font-extrabold px-10 py-4 rounded-xl hover:bg-orange-600 hover:scale-105 transition-all duration-300 shadow-[0_4px_20px_rgba(249,115,22,0.4)]">
-                  Pay & Book ₹528
-                </Link>
-                <p className="text-xs text-gray-500 mt-4 flex items-center justify-center sm:justify-end gap-1">
-                  <span>🔒</span> Secure 128-bit encrypted checkout
-                </p>
-              </div>
+              <button
+                onClick={handleBook}
+                disabled={submitting}
+                className="w-full bg-fasty-yellow text-fasty-black font-extrabold text-lg py-4 rounded-xl hover:bg-yellow-400 hover:scale-[1.01] transition-all duration-300 shadow-[0_4px_24px_rgba(255,196,0,0.3)] disabled:opacity-60 disabled:cursor-not-allowed disabled:transform-none"
+              >
+                {submitting ? (
+                  <span className="flex items-center justify-center gap-2">
+                    <span className="w-5 h-5 border-2 border-fasty-black/30 border-t-fasty-black rounded-full animate-spin" />
+                    Confirming booking…
+                  </span>
+                ) : `Confirm & Pay ₹${totalPrice}`}
+              </button>
+
+              <p className="text-center text-xs text-gray-600 flex items-center justify-center gap-1.5">
+                <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z" />
+                </svg>
+                Secured & encrypted checkout · Free cancellation before assignment
+              </p>
             </div>
           )}
-
         </div>
       </div>
     </main>
@@ -174,13 +478,10 @@ export default function BookPage() {
   return (
     <Suspense fallback={
       <div className="min-h-screen bg-fasty-black flex items-center justify-center">
-        <div className="flex flex-col items-center gap-4">
-          <span className="w-12 h-12 border-4 border-[#F97316]/20 border-t-[#F97316] rounded-full animate-spin" />
-          <div className="animate-pulse text-[#F97316] font-bold tracking-widest uppercase text-sm">Loading Booking...</div>
-        </div>
+        <div className="w-10 h-10 border-2 border-fasty-yellow/20 border-t-fasty-yellow rounded-full animate-spin" />
       </div>
     }>
-      <BookingFlow />
+      <BookFlow />
     </Suspense>
   );
 }

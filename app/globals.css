@@ -69,6 +69,18 @@ body {
   .eyebrow {
     @apply inline-block text-fasty-yellow font-bold text-xs uppercase tracking-[0.2em];
   }
+  .card-dark {
+    @apply bg-white/5 backdrop-blur-sm border border-white/10 rounded-2xl p-5 transition-all duration-300;
+  }
+  .card-dark-hover {
+    @apply bg-white/5 backdrop-blur-sm border border-white/10 rounded-2xl p-5 hover:border-fasty-yellow/30 hover:bg-white/8 transition-all duration-300;
+  }
+  .input-dark {
+    @apply w-full bg-white/5 border border-white/10 rounded-xl px-4 py-3.5 text-white focus:border-fasty-yellow/60 focus:outline-none transition-colors placeholder:text-gray-500;
+  }
+  .select-dark {
+    @apply w-full bg-fasty-black border border-white/10 rounded-xl px-4 py-3.5 text-white focus:border-fasty-yellow/60 focus:outline-none transition-colors;
+  }
 }
 
 /* Animations */

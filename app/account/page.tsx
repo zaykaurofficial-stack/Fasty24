@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
+import Link from 'next/link';
 import {
   getMe,
   getUser,
@@ -46,10 +47,7 @@ export default function AccountPage() {
   }
 
   useEffect(() => {
-    if (!getUser()) {
-      router.push('/login?redirect=/account');
-      return;
-    }
+    if (!getUser()) { router.push('/login?redirect=/account'); return; }
     load().finally(() => setLoading(false));
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [router]);
@@ -71,10 +69,7 @@ export default function AccountPage() {
   }
 
   async function saveAddress() {
-    if (!addrForm.line1.trim()) {
-      toast('Address line is required', 'error');
-      return;
-    }
+    if (!addrForm.line1.trim()) { toast('Address line is required', 'error'); return; }
     setSaving(true);
     try {
       if (editingAddr === 'new') {
@@ -120,49 +115,91 @@ export default function AccountPage() {
 
   if (loading) {
     return (
-      <div className="max-w-3xl mx-auto px-4 py-10">
-        <div className="skeleton h-8 w-40 mb-6" />
-        <div className="skeleton h-64 w-full" />
-      </div>
+      <main className="min-h-screen bg-fasty-black pt-28 pb-16">
+        <div className="max-w-3xl mx-auto px-4 space-y-4">
+          <div className="h-8 w-40 rounded-xl bg-white/5 animate-pulse" />
+          <div className="h-64 rounded-2xl bg-white/5 animate-pulse" />
+          <div className="h-48 rounded-2xl bg-white/5 animate-pulse" />
+        </div>
+      </main>
     );
   }
 
   return (
-    <>
-      <section className="bg-fasty-black text-white py-12">
-        <div className="max-w-3xl mx-auto px-4 flex items-center justify-between">
+    <main className="min-h-screen bg-fasty-black text-white">
+      {/* Header */}
+      <section className="relative pt-28 pb-8 border-b border-white/5 overflow-hidden">
+        <div className="absolute top-0 right-0 w-72 h-72 bg-fasty-yellow/5 blur-[100px] rounded-full pointer-events-none" />
+        <div className="max-w-3xl mx-auto px-4 sm:px-6 relative z-10 flex items-start justify-between">
           <div>
-            <h1 className="text-3xl font-extrabold">My Account</h1>
-            <p className="text-gray-400 mt-1">{me?.phone}</p>
+            <Link href="/" className="text-gray-500 hover:text-fasty-yellow text-sm transition-colors mb-4 inline-flex items-center gap-1">← Home</Link>
+            <div className="flex items-center gap-4 mt-2">
+              <div className="w-14 h-14 rounded-2xl bg-fasty-yellow/15 border border-fasty-yellow/20 flex items-center justify-center text-2xl font-extrabold text-fasty-yellow">
+                {(me?.name || me?.phone || 'U')[0].toUpperCase()}
+              </div>
+              <div>
+                <h1 className="text-2xl font-extrabold text-white">{me?.name || 'My Account'}</h1>
+                <p className="text-gray-400 text-sm mt-0.5">{me?.phone}</p>
+              </div>
+            </div>
           </div>
           <button
-            onClick={() => {
-              clearAuth();
-              router.push('/');
-            }}
-            className="btn-ghost-white !py-2 !px-5 text-sm"
+            onClick={() => { clearAuth(); router.push('/'); }}
+            className="text-sm font-bold text-red-400 hover:text-red-300 px-4 py-2 rounded-xl border border-red-500/20 hover:border-red-500/40 hover:bg-red-500/5 transition-all"
           >
             Logout
           </button>
         </div>
       </section>
 
-      <div className="max-w-3xl mx-auto px-4 py-10 space-y-8">
+      <div className="max-w-3xl mx-auto px-4 sm:px-6 py-8 space-y-5">
+
+        {/* Quick links */}
+        <Link
+          href="/bookings"
+          className="flex items-center justify-between bg-[#141414] border border-white/8 rounded-2xl px-5 py-4 hover:border-fasty-yellow/30 transition-all group"
+        >
+          <div className="flex items-center gap-3">
+            <span className="text-xl">📋</span>
+            <span className="font-semibold text-white">My Bookings</span>
+          </div>
+          <svg className="w-4 h-4 text-gray-500 group-hover:text-fasty-yellow group-hover:translate-x-0.5 transition-all" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
+          </svg>
+        </Link>
+
         {/* Profile */}
-        <div className="card !p-6">
-          <h2 className="font-bold text-lg mb-4">Profile</h2>
-          <div className="grid sm:grid-cols-2 gap-4">
+        <div className="bg-[#141414] border border-white/8 rounded-2xl p-6">
+          <h2 className="font-bold text-white mb-5 flex items-center gap-2">
+            <span className="w-8 h-8 rounded-lg bg-fasty-yellow/15 flex items-center justify-center text-sm">👤</span>
+            Profile
+          </h2>
+          <div className="grid sm:grid-cols-2 gap-4 mb-5">
             <div>
-              <label className="block text-sm font-bold mb-2">Full name</label>
-              <input value={name} onChange={(e) => setName(e.target.value)} className="input-field" />
+              <label className="block text-xs font-bold text-gray-400 mb-2 uppercase tracking-wider">Full name</label>
+              <input
+                value={name}
+                onChange={(e) => setName(e.target.value)}
+                className="w-full px-4 py-3 bg-fasty-black/60 border border-white/10 rounded-xl text-white text-sm focus:outline-none focus:border-fasty-yellow/50 transition-colors placeholder:text-gray-600"
+                placeholder="Your full name"
+              />
             </div>
             <div>
-              <label className="block text-sm font-bold mb-2">Email</label>
-              <input value={email} onChange={(e) => setEmail(e.target.value)} className="input-field" placeholder="you@email.com" />
+              <label className="block text-xs font-bold text-gray-400 mb-2 uppercase tracking-wider">Email</label>
+              <input
+                value={email}
+                onChange={(e) => setEmail(e.target.value)}
+                className="w-full px-4 py-3 bg-fasty-black/60 border border-white/10 rounded-xl text-white text-sm focus:outline-none focus:border-fasty-yellow/50 transition-colors placeholder:text-gray-600"
+                placeholder="you@email.com"
+              />
             </div>
             <div>
-              <label className="block text-sm font-bold mb-2">Gender</label>
-              <select value={gender} onChange={(e) => setGender(e.target.value)} className="input-field">
+              <label className="block text-xs font-bold text-gray-400 mb-2 uppercase tracking-wider">Gender</label>
+              <select
+                value={gender}
+                onChange={(e) => setGender(e.target.value)}
+                className="w-full px-4 py-3 bg-fasty-black border border-white/10 rounded-xl text-white text-sm focus:outline-none focus:border-fasty-yellow/50 transition-colors"
+              >
                 <option value="male">Male</option>
                 <option value="female">Female</option>
                 <option value="other">Other</option>
@@ -170,21 +207,25 @@ export default function AccountPage() {
               </select>
             </div>
           </div>
-          <button onClick={saveProfile} disabled={saving} className="btn-primary mt-5">
-            Save changes
+          <button
+            onClick={saveProfile}
+            disabled={saving}
+            className="bg-fasty-yellow text-fasty-black font-bold px-6 py-3 rounded-xl hover:bg-yellow-400 transition-all disabled:opacity-50 disabled:cursor-not-allowed"
+          >
+            {saving ? 'Saving…' : 'Save changes'}
           </button>
         </div>
 
         {/* Addresses */}
-        <div className="card !p-6">
-          <div className="flex items-center justify-between mb-4">
-            <h2 className="font-bold text-lg">Saved addresses</h2>
+        <div className="bg-[#141414] border border-white/8 rounded-2xl p-6">
+          <div className="flex items-center justify-between mb-5">
+            <h2 className="font-bold text-white flex items-center gap-2">
+              <span className="w-8 h-8 rounded-lg bg-fasty-yellow/15 flex items-center justify-center text-sm">📍</span>
+              Saved Addresses
+            </h2>
             <button
-              onClick={() => {
-                setEditingAddr('new');
-                setAddrForm(EMPTY_ADDR);
-              }}
-              className="text-sm font-bold text-fasty-yellow hover:underline"
+              onClick={() => { setEditingAddr('new'); setAddrForm(EMPTY_ADDR); }}
+              className="text-xs font-bold text-fasty-yellow bg-fasty-yellow/10 border border-fasty-yellow/20 px-3 py-1.5 rounded-lg hover:bg-fasty-yellow/20 transition-colors"
             >
               + Add address
             </button>
@@ -192,77 +233,77 @@ export default function AccountPage() {
 
           <div className="space-y-3">
             {(me?.addresses ?? []).map((a) => (
-              <div key={a.id} className="rounded-xl border-2 border-gray-100 p-4">
+              <div key={a.id} className="rounded-xl border border-white/8 bg-fasty-black/40 p-4">
                 <div className="flex justify-between items-start">
                   <div>
-                    <p className="font-semibold text-sm">
-                      {a.label}{' '}
-                      {a.isDefault && <span className="chip bg-fasty-yellow/20 text-fasty-black text-[10px]">Default</span>}
+                    <p className="font-semibold text-white text-sm flex items-center gap-2">
+                      {a.label}
+                      {a.isDefault && (
+                        <span className="text-[10px] font-bold text-fasty-yellow bg-fasty-yellow/10 border border-fasty-yellow/20 px-2 py-0.5 rounded-full">Default</span>
+                      )}
                     </p>
-                    <p className="text-sm text-fasty-gray mt-0.5">
+                    <p className="text-xs text-gray-500 mt-1">
                       {[a.line1, a.line2, a.city, a.pincode].filter(Boolean).join(', ')}
                     </p>
                   </div>
-                  <div className="flex gap-3 text-xs font-semibold shrink-0">
+                  <div className="flex gap-2 text-xs font-semibold shrink-0">
                     {!a.isDefault && (
-                      <button onClick={() => makeDefault(a.id)} className="text-fasty-black hover:underline">
+                      <button onClick={() => makeDefault(a.id)} className="text-gray-500 hover:text-fasty-yellow transition-colors">
                         Set default
                       </button>
                     )}
-                    <button onClick={() => startEdit(a)} className="text-fasty-black hover:underline">
-                      Edit
-                    </button>
-                    <button onClick={() => removeAddress(a.id)} className="text-red-600 hover:underline">
-                      Delete
-                    </button>
+                    <button onClick={() => startEdit(a)} className="text-gray-500 hover:text-white transition-colors">Edit</button>
+                    <button onClick={() => removeAddress(a.id)} className="text-red-500 hover:text-red-400 transition-colors">Delete</button>
                   </div>
                 </div>
               </div>
             ))}
+
             {(me?.addresses ?? []).length === 0 && editingAddr === null && (
-              <p className="text-sm text-fasty-gray">No saved addresses yet.</p>
+              <p className="text-sm text-gray-500 text-center py-4">No saved addresses yet.</p>
             )}
           </div>
 
           {editingAddr !== null && (
-            <div className="mt-4 rounded-xl border-2 border-fasty-yellow/40 p-4 space-y-3 bg-fasty-yellow/5">
-              <p className="font-bold text-sm">{editingAddr === 'new' ? 'New address' : 'Edit address'}</p>
+            <div className="mt-4 rounded-xl border border-fasty-yellow/30 bg-fasty-yellow/5 p-4 space-y-3">
+              <p className="font-bold text-sm text-white">{editingAddr === 'new' ? 'New address' : 'Edit address'}</p>
               <input
                 value={addrForm.label}
                 onChange={(e) => setAddrForm({ ...addrForm, label: e.target.value })}
-                placeholder="Label (Home, Office...)"
-                className="input-field"
+                placeholder="Label (Home, Office…)"
+                className="w-full px-4 py-3 bg-fasty-black/60 border border-white/10 rounded-xl text-white text-sm focus:outline-none focus:border-fasty-yellow/50 transition-colors placeholder:text-gray-600"
               />
               <input
                 value={addrForm.line1}
                 onChange={(e) => setAddrForm({ ...addrForm, line1: e.target.value })}
                 placeholder="House no., street, landmark"
-                className="input-field"
+                className="w-full px-4 py-3 bg-fasty-black/60 border border-white/10 rounded-xl text-white text-sm focus:outline-none focus:border-fasty-yellow/50 transition-colors placeholder:text-gray-600"
               />
               <div className="grid grid-cols-2 gap-3">
                 <input
                   value={addrForm.city}
                   onChange={(e) => setAddrForm({ ...addrForm, city: e.target.value })}
                   placeholder="City"
-                  className="input-field"
+                  className="w-full px-4 py-3 bg-fasty-black/60 border border-white/10 rounded-xl text-white text-sm focus:outline-none focus:border-fasty-yellow/50 transition-colors placeholder:text-gray-600"
                 />
                 <input
                   value={addrForm.pincode}
                   onChange={(e) => setAddrForm({ ...addrForm, pincode: e.target.value })}
                   placeholder="Pincode"
-                  className="input-field"
+                  className="w-full px-4 py-3 bg-fasty-black/60 border border-white/10 rounded-xl text-white text-sm focus:outline-none focus:border-fasty-yellow/50 transition-colors placeholder:text-gray-600"
                 />
               </div>
               <div className="flex gap-3">
-                <button onClick={saveAddress} disabled={saving} className="btn-primary !py-2.5">
-                  Save
+                <button
+                  onClick={saveAddress}
+                  disabled={saving}
+                  className="bg-fasty-yellow text-fasty-black font-bold px-5 py-2.5 rounded-xl hover:bg-yellow-400 transition-all disabled:opacity-50"
+                >
+                  {saving ? 'Saving…' : 'Save'}
                 </button>
                 <button
-                  onClick={() => {
-                    setEditingAddr(null);
-                    setAddrForm(EMPTY_ADDR);
-                  }}
-                  className="btn-outline !py-2.5"
+                  onClick={() => { setEditingAddr(null); setAddrForm(EMPTY_ADDR); }}
+                  className="border border-white/20 text-gray-300 font-bold px-5 py-2.5 rounded-xl hover:border-white/40 hover:text-white transition-all"
                 >
                   Cancel
                 </button>
@@ -271,6 +312,6 @@ export default function AccountPage() {
           )}
         </div>
       </div>
-    </>
+    </main>
   );
 }

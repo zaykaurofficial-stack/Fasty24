@@ -1,10 +1,10 @@
 'use client';
 
 import { useEffect, useState } from 'react';
-import Image from 'next/image';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
-import { getBookings, getUser, Booking, STATUS_LABELS } from '@/lib/api';
+import { getBookings, getUser, Booking, STATUS_LABELS, ACTIVE_STATUSES, errorMessage } from '@/lib/api';
+import { toast } from '@/lib/toast';
 
 export default function BookingsPage() {
   const router = useRouter();
@@ -13,10 +13,13 @@ export default function BookingsPage() {
 
   useEffect(() => {
     if (!getUser()) {
-      router.push('/login');
+      router.push('/login?redirect=/bookings');
       return;
     }
-    getBookings().then(setBookings).finally(() => setLoading(false));
+    getBookings()
+      .then(setBookings)
+      .catch((err) => toast(errorMessage(err), 'error'))
+      .finally(() => setLoading(false));
   }, [router]);
 
   return (
@@ -30,76 +33,58 @@ export default function BookingsPage() {
 
       <div className="max-w-4xl mx-auto px-4 py-10 -mt-6">
         {loading ? (
-          <div className="card animate-pulse text-fasty-gray text-center py-12">Loading bookings...</div>
+          <div className="space-y-4">
+            {Array.from({ length: 3 }).map((_, i) => (
+              <div key={i} className="skeleton h-32" />
+            ))}
+          </div>
         ) : bookings.length === 0 ? (
-          <div className="card text-center py-16 shadow-xl">
-            <div className="relative w-32 h-32 mx-auto mb-6 rounded-full overflow-hidden">
-              <Image
-                src="https://images.unsplash.com/photo-1581578731548-c64695cc6952?w=200&q=80"
-                alt="No bookings"
-                fill
-                className="object-cover opacity-80"
-              />
+          <div className="card text-center py-16">
+            <div className="w-20 h-20 mx-auto mb-6 rounded-full bg-fasty-light flex items-center justify-center text-4xl">
+              📋
             </div>
             <h2 className="font-extrabold text-xl mb-2">No bookings yet</h2>
             <p className="text-fasty-gray text-sm mb-8 max-w-sm mx-auto">
-              Your first service is just a tap away. AC, RO, cleaning & more — delivered in 15–20 minutes.
+              Your first service is just a tap away. AC, RO, cleaning & more - delivered in 15-20 minutes.
             </p>
-            <Link href="/categories" className="btn-primary inline-block">
+            <Link href="/categories" className="btn-primary">
               Explore services
             </Link>
           </div>
         ) : (
           <div className="space-y-4">
-            {bookings.map((b, i) => {
+            {bookings.map((b) => {
               const status = STATUS_LABELS[b.status] ?? { label: b.status, color: 'bg-gray-100 text-gray-800' };
-              const isActive = ['dispatching', 'assigned', 'staff_en_route', 'in_progress'].includes(b.status);
+              const isActive = ACTIVE_STATUSES.includes(b.status);
+              const title = b.items.map((it) => it.name).join(', ') || 'Service';
               return (
-                <div
-                  key={b._id}
-                  className={`card !p-0 overflow-hidden border-l-4 ${
-                    isActive ? 'border-l-fasty-yellow shadow-lg' : 'border-l-gray-200'
+                <Link
+                  key={b.id}
+                  href={`/bookings/${b.id}`}
+                  className={`block card !p-0 overflow-hidden border-l-4 ${
+                    isActive ? 'border-l-fasty-yellow' : 'border-l-gray-200'
                   }`}
                 >
                   <div className="p-5">
-                    <div className="flex justify-between items-start gap-4 mb-4">
+                    <div className="flex justify-between items-start gap-4 mb-3">
                       <div>
-                        <span className="text-xs font-bold text-fasty-gray uppercase tracking-wider">
-                          Booking #{bookings.length - i}
-                        </span>
-                        <h3 className="font-extrabold text-xl mt-1">{b.serviceName}</h3>
-                        {b.address && (
-                          <p className="text-sm text-fasty-gray mt-1 flex items-center gap-1">
-                            📍 {b.address.line1}, {b.address.city}
-                          </p>
-                        )}
+                        <h3 className="font-extrabold text-lg">{title}</h3>
+                        <p className="text-sm text-fasty-gray mt-1">📍 {b.location?.address}</p>
                       </div>
-                      <span className={`text-xs font-bold px-3 py-1.5 rounded-full shrink-0 ${status.color}`}>
-                        {status.label}
-                      </span>
+                      <span className={`chip shrink-0 ${status.color}`}>{status.label}</span>
                     </div>
                     {isActive && (
-                      <div className="bg-fasty-light rounded-xl p-4 mb-4 flex items-center gap-3">
-                        <div className="w-10 h-10 bg-fasty-yellow rounded-full flex items-center justify-center animate-pulse">
-                          ⚡
-                        </div>
-                        <div>
-                          <p className="font-bold text-sm">Live tracking active</p>
-                          <p className="text-xs text-fasty-gray">
-                            {b.status === 'dispatching' && 'Finding nearest professional...'}
-                            {b.status === 'assigned' && 'Staff assigned — on the way!'}
-                            {b.status === 'staff_en_route' && 'Professional is en route to you'}
-                            {b.status === 'in_progress' && 'Service in progress at your location'}
-                          </p>
-                        </div>
+                      <div className="bg-fasty-light rounded-xl p-3 mb-3 flex items-center gap-3">
+                        <span className="relative w-3 h-3 rounded-full bg-fasty-yellow pulse-ring" />
+                        <p className="text-xs text-fasty-gray font-semibold">Live tracking active - tap to view</p>
                       </div>
                     )}
-                    <div className="flex justify-between items-center pt-4 border-t border-gray-100">
-                      <span className="font-extrabold text-2xl">₹{b.totalPrice}</span>
-                      <span className="text-sm text-fasty-gray">Paid · Receipt available</span>
+                    <div className="flex justify-between items-center pt-3 border-t border-gray-100">
+                      <span className="font-extrabold text-xl">₹{b.pricing?.total ?? 0}</span>
+                      <span className="text-sm text-fasty-yellow font-bold">View details →</span>
                     </div>
                   </div>
-                </div>
+                </Link>
               );
             })}
           </div>

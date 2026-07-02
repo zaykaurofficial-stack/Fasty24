@@ -1,18 +1,27 @@
+'use client';
+
+import { useEffect, useState } from 'react';
 import Image from 'next/image';
 import Link from 'next/link';
-import ServiceCard from '@/components/ServiceCard';
+import CategoryCard from '@/components/CategoryCard';
 import SectionHeader from '@/components/SectionHeader';
-import {
-  CATEGORIES_RICH,
-  HERO_IMAGE,
-  WHY_US,
-  TESTIMONIALS,
-  FAQ,
-  STATS,
-  SITE,
-} from '@/lib/content';
+import { getCategories, Category } from '@/lib/api';
+import { accentFor } from '@/lib/content';
+import { HERO_IMAGE, WHY_US, TESTIMONIALS, FAQ, STATS, SITE } from '@/lib/content';
 
 export default function HomePage() {
+  const [categories, setCategories] = useState<Category[]>([]);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    getCategories()
+      .then(setCategories)
+      .catch(() => setCategories([]))
+      .finally(() => setLoading(false));
+  }, []);
+
+  const featured = categories.slice(0, 4);
+
   return (
     <>
       {/* Hero */}
@@ -35,7 +44,7 @@ export default function HomePage() {
             <div className="inline-flex items-center gap-2 bg-fasty-yellow/10 border border-fasty-yellow/30 rounded-full px-4 py-1.5 mb-6">
               <span className="w-2 h-2 bg-fasty-yellow rounded-full animate-pulse" />
               <span className="text-fasty-yellow text-sm font-semibold">
-                Live in Delhi NCR · 15–20 min guarantee
+                Live in Delhi NCR · 15-20 min guarantee
               </span>
             </div>
             <h1 className="text-5xl md:text-6xl lg:text-7xl font-extrabold leading-[1.1] tracking-tight mb-6">
@@ -44,7 +53,7 @@ export default function HomePage() {
             </h1>
             <p className="text-gray-300 text-lg md:text-xl leading-relaxed mb-8 max-w-xl">
               {SITE.tagline}. AC repair, RO servicing, instant maid, appliance repair & deep
-              cleaning — verified pros at your door in minutes, not hours.
+              cleaning - verified pros at your door in minutes, not hours.
             </p>
             <div className="flex flex-wrap gap-4 mb-10">
               <Link href="/categories" className="btn-primary text-base">
@@ -74,27 +83,41 @@ export default function HomePage() {
           </div>
 
           <div className="hidden lg:grid grid-cols-2 gap-4 animate-fade-up">
-            {CATEGORIES_RICH.slice(0, 4).map((cat) => (
-              <Link
-                key={cat.id}
-                href={`/categories?cat=${cat.id}`}
-                className="relative h-44 rounded-2xl overflow-hidden group border border-white/10"
-              >
-                <Image
-                  src={cat.image}
-                  alt={cat.name}
-                  fill
-                  className="object-cover group-hover:scale-110 transition-transform duration-500"
-                  sizes="300px"
-                />
-                <div className="absolute inset-0 bg-gradient-to-t from-black/80 to-transparent" />
-                <div className="absolute bottom-3 left-3">
-                  <span className="text-lg">{cat.icon}</span>
-                  <p className="text-white font-bold text-sm mt-1">{cat.name}</p>
-                  <p className="text-fasty-yellow text-xs font-semibold">From ₹{cat.priceFrom}</p>
-                </div>
-              </Link>
-            ))}
+            {(loading ? Array.from({ length: 4 }) : featured).map((cat, i) => {
+              const c = cat as Category | undefined;
+              if (!c) return <div key={i} className="h-44 rounded-2xl skeleton" />;
+              return (
+                <Link
+                  key={c.id}
+                  href={`/categories?cat=${c.slug}`}
+                  className="relative h-44 rounded-2xl overflow-hidden group border border-white/10"
+                >
+                  {c.imageUrl ? (
+                    <>
+                      {/* eslint-disable-next-line @next/next/no-img-element */}
+                      <img
+                        src={c.imageUrl}
+                        alt={c.name}
+                        className="absolute inset-0 w-full h-full object-cover group-hover:scale-110 transition-transform duration-500"
+                      />
+                      <div className="absolute inset-0 bg-gradient-to-t from-black/80 to-transparent" />
+                    </>
+                  ) : (
+                    <div className={`absolute inset-0 bg-gradient-to-br ${accentFor(c.slug)}`}>
+                      <span className="absolute top-4 left-4 text-4xl group-hover:scale-110 transition-transform">
+                        {c.icon || '🛠️'}
+                      </span>
+                    </div>
+                  )}
+                  <div className="absolute bottom-4 left-4 right-4">
+                    <p className={`font-bold text-sm ${c.imageUrl ? 'text-white' : 'text-fasty-black'}`}>{c.name}</p>
+                    <p className={`text-xs font-semibold ${c.imageUrl ? 'text-fasty-yellow' : 'text-fasty-black/60'}`}>
+                      {(c.services?.length ?? 0)} services
+                    </p>
+                  </div>
+                </Link>
+              );
+            })}
           </div>
         </div>
       </section>
@@ -114,9 +137,9 @@ export default function HomePage() {
       {/* Trust bar */}
       <section className="bg-fasty-light py-6 border-b border-gray-100">
         <div className="max-w-7xl mx-auto px-4 flex flex-wrap justify-center gap-x-10 gap-y-3 text-sm font-semibold text-fasty-gray">
-          {['✓ Background verified staff', '✓ OTP-secured jobs', '✓ Transparent pricing', '✓ UPI & card payments', '✓ Live job tracking'].map(
+          {['Background verified staff', 'OTP-secured jobs', 'Transparent pricing', 'UPI & card payments', 'Live job tracking'].map(
             (item) => (
-              <span key={item} className="text-fasty-black/70">{item}</span>
+              <span key={item} className="text-fasty-black/70">✓ {item}</span>
             ),
           )}
         </div>
@@ -129,11 +152,24 @@ export default function HomePage() {
           title="Everything your home needs"
           subtitle="Handpicked categories with trained professionals, genuine parts, and upfront pricing."
         />
-        <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-6">
-          {CATEGORIES_RICH.map((cat) => (
-            <ServiceCard key={cat.id} {...cat} />
-          ))}
-        </div>
+        {loading ? (
+          <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-4 lg:gap-5 max-w-6xl mx-auto">
+            {Array.from({ length: 5 }).map((_, i) => (
+              <div key={i} className="skeleton aspect-[4/5] rounded-2xl" />
+            ))}
+          </div>
+        ) : categories.length === 0 ? (
+          <div className="card-flat text-center py-16 text-fasty-gray">
+            <p className="font-semibold">Services are being set up.</p>
+            <p className="text-sm mt-1">Please check back shortly.</p>
+          </div>
+        ) : (
+          <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-4 lg:gap-5 max-w-6xl mx-auto">
+            {categories.map((cat) => (
+              <CategoryCard key={cat.id} category={cat} />
+            ))}
+          </div>
+        )}
         <div className="text-center mt-12">
           <Link href="/categories" className="btn-outline">
             View all services & pricing
@@ -141,13 +177,13 @@ export default function HomePage() {
         </div>
       </section>
 
-      {/* Why us - image cards */}
+      {/* Why us */}
       <section className="bg-fasty-black text-white py-20">
         <div className="max-w-7xl mx-auto px-4">
           <SectionHeader
             eyebrow="Why Fasty-24"
             title="Built for speed, trust & quality"
-            subtitle="Urban Company–grade service experience with hyper-local 15–20 minute dispatch."
+            subtitle="A premium service experience with hyper-local 15-20 minute dispatch."
             align="center"
             dark
           />
@@ -188,12 +224,12 @@ export default function HomePage() {
           <div className="hidden md:block absolute top-10 left-[12%] right-[12%] h-0.5 bg-fasty-yellow/30" />
           {[
             { step: '01', title: 'Choose service', desc: 'Browse categories with real photos & upfront prices', icon: '📱' },
-            { step: '02', title: 'Book & pay', desc: 'Add address, pay via UPI/card — secure Razorpay checkout', icon: '💳' },
+            { step: '02', title: 'Book & pay', desc: 'Add address, pay securely - instant or scheduled', icon: '💳' },
             { step: '03', title: 'Pro assigned', desc: 'Nearest verified staff accepts in seconds via smart dispatch', icon: '⚡' },
             { step: '04', title: 'Job done', desc: 'OTP verification at start & finish. Rate your experience', icon: '✅' },
           ].map((s) => (
             <div key={s.step} className="text-center relative">
-              <div className="w-20 h-20 bg-fasty-black text-fasty-yellow font-extrabold text-2xl rounded-2xl flex items-center justify-center mx-auto mb-4 shadow-xl shadow-black/20 relative z-10">
+              <div className="w-20 h-20 bg-fasty-black text-fasty-yellow font-extrabold text-2xl rounded-2xl flex items-center justify-center mx-auto mb-4 shadow-lift relative z-10">
                 {s.icon}
               </div>
               <span className="text-xs font-bold text-fasty-yellow tracking-widest">{s.step}</span>
@@ -207,11 +243,7 @@ export default function HomePage() {
       {/* Testimonials */}
       <section className="bg-fasty-light py-20">
         <div className="max-w-7xl mx-auto px-4">
-          <SectionHeader
-            eyebrow="Customer stories"
-            title="Loved by thousands of homes"
-            align="center"
-          />
+          <SectionHeader eyebrow="Customer stories" title="Loved by thousands of homes" align="center" />
           <div className="grid md:grid-cols-3 gap-6">
             {TESTIMONIALS.map((t) => (
               <div key={t.name} className="card !p-6 flex flex-col">
@@ -220,17 +252,9 @@ export default function HomePage() {
                     <span key={i}>★</span>
                   ))}
                 </div>
-                <p className="text-fasty-black/80 leading-relaxed flex-1 italic">
-                  &ldquo;{t.text}&rdquo;
-                </p>
+                <p className="text-fasty-black/80 leading-relaxed flex-1 italic">&ldquo;{t.text}&rdquo;</p>
                 <div className="flex items-center gap-3 mt-6 pt-6 border-t border-gray-100">
-                  <Image
-                    src={t.avatar}
-                    alt={t.name}
-                    width={48}
-                    height={48}
-                    className="rounded-full object-cover"
-                  />
+                  <Image src={t.avatar} alt={t.name} width={48} height={48} className="rounded-full object-cover" />
                   <div>
                     <p className="font-bold text-sm">{t.name}</p>
                     <p className="text-xs text-fasty-gray">
@@ -257,9 +281,7 @@ export default function HomePage() {
             />
             <div className="absolute inset-0 bg-gradient-to-t from-fasty-black/80 to-transparent" />
             <div className="absolute bottom-6 left-6 right-6">
-              <p className="text-fasty-yellow font-bold text-sm uppercase tracking-wider mb-2">
-                Now serving
-              </p>
+              <p className="text-fasty-yellow font-bold text-sm uppercase tracking-wider mb-2">Now serving</p>
               <div className="flex flex-wrap gap-2">
                 {SITE.cities.map((city) => (
                   <span
@@ -276,19 +298,21 @@ export default function HomePage() {
             <SectionHeader
               eyebrow="Get started"
               title="Your home deserves the best"
-              subtitle="Download the Fasty-24 app or book instantly from the web. First-time users get priority dispatch."
+              subtitle="Book instantly from the web. First-time users get priority dispatch."
             />
             <ul className="space-y-4 mb-8">
               {['No subscription fees', 'Pay after service option', '24/7 customer support', 'Add-ons during live jobs'].map(
                 (item) => (
                   <li key={item} className="flex items-center gap-3 text-fasty-black/80">
-                    <span className="w-6 h-6 bg-fasty-yellow rounded-full flex items-center justify-center text-xs font-bold">✓</span>
+                    <span className="w-6 h-6 bg-fasty-yellow rounded-full flex items-center justify-center text-xs font-bold">
+                      ✓
+                    </span>
                     {item}
                   </li>
                 ),
               )}
             </ul>
-            <Link href="/categories" className="btn-primary text-lg inline-block">
+            <Link href="/categories" className="btn-primary text-lg">
               Book a service now
             </Link>
           </div>
@@ -298,18 +322,10 @@ export default function HomePage() {
       {/* FAQ */}
       <section className="bg-fasty-black text-white py-20">
         <div className="max-w-3xl mx-auto px-4">
-          <SectionHeader
-            eyebrow="FAQ"
-            title="Questions? We've got answers."
-            align="center"
-            dark
-          />
+          <SectionHeader eyebrow="FAQ" title="Questions? We've got answers." align="center" dark />
           <div className="space-y-4">
             {FAQ.map((item) => (
-              <details
-                key={item.q}
-                className="glass-dark rounded-xl p-5 group open:border-fasty-yellow/30"
-              >
+              <details key={item.q} className="glass-dark rounded-xl p-5 group open:border-fasty-yellow/30">
                 <summary className="font-bold cursor-pointer list-none flex justify-between items-center gap-4">
                   {item.q}
                   <span className="text-fasty-yellow text-xl group-open:rotate-45 transition-transform">+</span>
@@ -334,7 +350,7 @@ export default function HomePage() {
               Join 50,000+ customers who trust Fasty-24 for repairs, cleaning & more.
             </p>
             <div className="flex flex-wrap justify-center gap-4">
-              <Link href="/categories" className="bg-fasty-black text-fasty-yellow font-bold px-8 py-4 rounded-xl hover:bg-fasty-black/90 transition">
+              <Link href="/categories" className="btn-dark">
                 Browse Services
               </Link>
               <Link href="/login" className="border-2 border-fasty-black text-fasty-black font-bold px-8 py-4 rounded-xl hover:bg-fasty-black hover:text-fasty-yellow transition">

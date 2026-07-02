@@ -5,6 +5,7 @@ import { usePathname } from 'next/navigation';
 import { useEffect, useState } from 'react';
 import { getUser, clearAuth } from '@/lib/api';
 import { SITE } from '@/lib/content';
+import Logo from '@/components/Logo';
 
 export default function Navbar() {
   const pathname = usePathname();
@@ -19,17 +20,13 @@ export default function Navbar() {
     { href: '/', label: 'Home' },
     { href: '/categories', label: 'Services' },
     { href: '/bookings', label: 'My Bookings' },
+    { href: '/account', label: 'Account' },
   ];
 
   return (
     <nav className="sticky top-0 z-50 bg-fasty-black/95 backdrop-blur-md text-white border-b border-fasty-yellow/20">
       <div className="max-w-7xl mx-auto px-4 h-16 flex items-center justify-between">
-        <Link href="/" className="flex items-center gap-2 shrink-0">
-          <span className="bg-fasty-yellow text-fasty-black font-extrabold text-xl px-3 py-1 rounded-lg">
-            Fasty
-          </span>
-          <span className="font-bold text-fasty-yellow hidden sm:inline">24</span>
-        </Link>
+        <Logo href="/" size="md" />
 
         <div className="hidden md:flex items-center gap-8">
           {links.map((l) => (

@@ -1,24 +1,45 @@
 'use client';
 
-import { useState } from 'react';
+import { Suspense, useState } from 'react';
 import Image from 'next/image';
-import { useRouter } from 'next/navigation';
+import { useRouter, useSearchParams } from 'next/navigation';
 import Link from 'next/link';
-import { sendOtp, verifyOtp, setAuth } from '@/lib/api';
+import { requestOtp, verifyOtp, completeProfile, setAuth, errorMessage } from '@/lib/api';
+import { toast } from '@/lib/toast';
+import Logo from '@/components/Logo';
 
-export default function LoginPage() {
+function LoginContent() {
   const router = useRouter();
-  const [phone, setPhone] = useState('+919876543210');
+  const params = useSearchParams();
+  const redirect = params.get('redirect') || '/categories';
+
+  const [phone, setPhone] = useState('');
   const [code, setCode] = useState('');
-  const [step, setStep] = useState<'phone' | 'otp'>('phone');
+  const [step, setStep] = useState<'phone' | 'otp' | 'profile'>('phone');
   const [loading, setLoading] = useState(false);
+  const [registrationToken, setRegistrationToken] = useState('');
+  const [name, setName] = useState('');
+  const [gender, setGender] = useState('prefer_not_to_say');
+
+  function finish(token: string, principal: { phone: string; name: string; id: string; role?: string }) {
+    setAuth(token, principal);
+    toast('Signed in successfully', 'success');
+    router.push(redirect);
+  }
 
   async function handleSendOtp() {
+    if (!phone.trim()) {
+      toast('Enter your phone number', 'error');
+      return;
+    }
     setLoading(true);
     try {
-      await sendOtp(phone);
-    } finally {
+      const res = await requestOtp(phone, 'customer');
       setStep('otp');
+      if (res.devCode) toast(`Dev OTP: ${res.devCode}`, 'info');
+    } catch (err) {
+      toast(errorMessage(err), 'error');
+    } finally {
       setLoading(false);
     }
   }
@@ -26,12 +47,35 @@ export default function LoginPage() {
   async function handleVerify() {
     setLoading(true);
     try {
-      const result = await verifyOtp(phone, code || '000000');
-      setAuth(result.accessToken, result.user);
-    } catch {
-      setAuth('demo-token', { phone, role: 'user' });
+      const res = await verifyOtp(phone, code || '000000', 'customer');
+      if (res.needsProfile && res.registrationToken) {
+        setRegistrationToken(res.registrationToken);
+        setStep('profile');
+      } else if (res.token && res.principal) {
+        finish(res.token, { ...res.principal, role: res.role });
+      } else {
+        toast('Unexpected response. Please try again.', 'error');
+      }
+    } catch (err) {
+      toast(errorMessage(err), 'error');
     } finally {
-      router.push('/categories');
+      setLoading(false);
+    }
+  }
+
+  async function handleCompleteProfile() {
+    if (!name.trim()) {
+      toast('Please enter your name', 'error');
+      return;
+    }
+    setLoading(true);
+    try {
+      const res = await completeProfile(registrationToken, { name, gender });
+      if (res.token && res.principal) finish(res.token, { ...res.principal, role: res.role });
+    } catch (err) {
+      toast(errorMessage(err), 'error');
+    } finally {
+      setLoading(false);
     }
   }
 
@@ -46,44 +90,45 @@ export default function LoginPage() {
           sizes="50vw"
         />
         <div className="absolute inset-0 bg-fasty-black/50 flex flex-col justify-end p-12">
-          <h2 className="text-3xl font-extrabold text-white mb-3">
-            Join 50,000+ happy homes
-          </h2>
-          <p className="text-gray-300">
-            Book trusted professionals in minutes. OTP-secured, transparent pricing.
-          </p>
+          <h2 className="text-3xl font-extrabold text-white mb-3">Join 50,000+ happy homes</h2>
+          <p className="text-gray-300">Book trusted professionals in minutes. OTP-secured, transparent pricing.</p>
         </div>
       </div>
 
       <div className="flex items-center justify-center px-4 py-12 bg-fasty-light">
         <div className="w-full max-w-md">
           <div className="text-center mb-8">
-            <div className="inline-flex items-center gap-2 mb-4">
-              <span className="bg-fasty-yellow text-fasty-black font-extrabold text-2xl px-3 py-1 rounded-xl">
-                Fasty
-              </span>
-              <span className="font-extrabold text-2xl">24</span>
+            <div className="flex justify-center mb-4">
+              <Logo href="/" size="lg" variant="light" />
             </div>
-            <h1 className="text-2xl font-extrabold">Welcome back</h1>
-            <p className="text-fasty-gray mt-1">Sign in with your mobile number</p>
+            <h1 className="text-2xl font-extrabold">
+              {step === 'profile' ? 'Almost there!' : 'Welcome'}
+            </h1>
+            <p className="text-fasty-gray mt-1">
+              {step === 'phone' && 'Sign in with your mobile number'}
+              {step === 'otp' && 'Enter the verification code'}
+              {step === 'profile' && 'Tell us a bit about you'}
+            </p>
           </div>
 
-          <div className="card border border-gray-100 shadow-xl !p-8">
-            {step === 'phone' ? (
+          <div className="card shadow-lift !p-8">
+            {step === 'phone' && (
               <>
                 <label className="block text-sm font-bold mb-2">Phone Number</label>
                 <input
                   type="tel"
                   value={phone}
                   onChange={(e) => setPhone(e.target.value)}
-                  className="w-full border-2 border-gray-200 rounded-xl px-4 py-3.5 focus:border-fasty-yellow focus:outline-none mb-6 text-lg"
-                  placeholder="+919876543210"
+                  className="input-field mb-6 text-lg"
+                  placeholder="9876543210"
                 />
                 <button onClick={handleSendOtp} disabled={loading} className="btn-primary w-full">
                   {loading ? 'Sending OTP...' : 'Continue with OTP'}
                 </button>
               </>
-            ) : (
+            )}
+
+            {step === 'otp' && (
               <>
                 <p className="text-sm text-fasty-gray mb-4">
                   Code sent to <strong className="text-fasty-black">{phone}</strong>
@@ -97,14 +142,36 @@ export default function LoginPage() {
                   value={code}
                   onChange={(e) => setCode(e.target.value)}
                   maxLength={6}
-                  className="w-full border-2 border-gray-200 rounded-xl px-4 py-4 focus:border-fasty-yellow focus:outline-none mb-2 text-center text-3xl tracking-[0.5em] font-extrabold"
+                  className="input-field mb-2 text-center text-3xl tracking-[0.5em] font-extrabold"
                   placeholder="······"
                 />
                 <p className="text-xs text-center text-fasty-gray mb-6">
-                  Demo mode: enter <strong className="text-fasty-black">000000</strong>
+                  Dev mode: enter <strong className="text-fasty-black">000000</strong>
                 </p>
                 <button onClick={handleVerify} disabled={loading} className="btn-primary w-full">
                   {loading ? 'Verifying...' : 'Verify & continue'}
+                </button>
+              </>
+            )}
+
+            {step === 'profile' && (
+              <>
+                <label className="block text-sm font-bold mb-2">Full name</label>
+                <input
+                  value={name}
+                  onChange={(e) => setName(e.target.value)}
+                  className="input-field mb-4"
+                  placeholder="Your name"
+                />
+                <label className="block text-sm font-bold mb-2">Gender</label>
+                <select value={gender} onChange={(e) => setGender(e.target.value)} className="input-field mb-6">
+                  <option value="male">Male</option>
+                  <option value="female">Female</option>
+                  <option value="other">Other</option>
+                  <option value="prefer_not_to_say">Prefer not to say</option>
+                </select>
+                <button onClick={handleCompleteProfile} disabled={loading} className="btn-primary w-full">
+                  {loading ? 'Saving...' : 'Create account'}
                 </button>
               </>
             )}
@@ -118,5 +185,13 @@ export default function LoginPage() {
         </div>
       </div>
     </div>
+  );
+}
+
+export default function LoginPage() {
+  return (
+    <Suspense fallback={<div className="p-20 text-center animate-pulse">Loading...</div>}>
+      <LoginContent />
+    </Suspense>
   );
 }

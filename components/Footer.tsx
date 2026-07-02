@@ -68,6 +68,11 @@ export default function Footer() {
                   Privacy Policy
                 </Link>
               </li>
+              <li>
+                <Link href="/delete-account" className="text-gray-400 hover:text-fasty-yellow text-sm transition-colors duration-200">
+                  Delete Account
+                </Link>
+              </li>
             </ul>
           </div>
 
@@ -108,6 +113,9 @@ export default function Footer() {
           <div className="flex flex-wrap items-center gap-4">
             <Link href="/privacy" className="text-gray-500 hover:text-fasty-yellow text-sm transition-colors">
               Privacy Policy
+            </Link>
+            <Link href="/delete-account" className="text-gray-500 hover:text-fasty-yellow text-sm transition-colors">
+              Delete Account
             </Link>
             <div className="flex items-center gap-2 text-fasty-yellow text-sm font-bold bg-fasty-yellow/10 px-4 py-2 rounded-full border border-fasty-yellow/20 shadow-[0_0_10px_rgba(255,215,0,0.1)]">
               <span className="animate-pulse">⚡</span> 15-20 min service guarantee

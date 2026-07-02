@@ -99,7 +99,9 @@ export default function PrivacyPolicyPage() {
             <li>Disable push notifications or location access through device or app settings</li>
           </ul>
           <p>
-            To exercise these rights, contact us at{' '}
+            To delete your account, visit our{' '}
+            <Link href="/delete-account" className="text-fasty-yellow hover:underline">Account Deletion page</Link>.
+            For other requests, contact us at{' '}
             <a href={`mailto:${SITE.email}`} className="text-fasty-yellow hover:underline">{SITE.email}</a>.
             We will respond within a reasonable timeframe.
           </p>

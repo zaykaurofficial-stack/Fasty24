@@ -1,7 +1,7 @@
 export const SITE = {
   tagline: 'India\'s fastest home services platform',
-  phone: '+91 99999 99999',
-  email: 'hello@fasty24.com',
+  phone: '+91 8368354151',
+  email: 'fasty24official@gmail.com',
   cities: ['Delhi NCR', 'Mumbai', 'Bangalore', 'Hyderabad', 'Pune'],
 };
 

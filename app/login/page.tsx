@@ -302,7 +302,7 @@ function LoginForm() {
           <p className="mt-6 text-center text-xs text-gray-600 leading-relaxed">
             By continuing, you agree to Fasty-24&apos;s{' '}
             <a href="#" className="text-fasty-yellow hover:underline">Terms of Service</a> and{' '}
-            <a href="#" className="text-fasty-yellow hover:underline">Privacy Policy</a>.
+            <Link href="/privacy" className="text-fasty-yellow hover:underline">Privacy Policy</Link>.
           </p>
 
           <div className="mt-6 text-center">

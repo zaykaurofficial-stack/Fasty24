@@ -48,13 +48,26 @@ export default function Footer() {
           <div>
             <h4 className="text-white font-bold mb-6 text-lg">Company</h4>
             <ul className="space-y-4">
-              {['All Services', 'Become a Partner', 'Careers', 'Privacy Policy'].map((link) => (
-                <li key={link}>
-                  <Link href="#" className="text-gray-400 hover:text-fasty-yellow text-sm transition-colors duration-200">
-                    {link}
-                  </Link>
-                </li>
-              ))}
+              <li>
+                <Link href="/categories" className="text-gray-400 hover:text-fasty-yellow text-sm transition-colors duration-200">
+                  All Services
+                </Link>
+              </li>
+              <li>
+                <Link href="#" className="text-gray-400 hover:text-fasty-yellow text-sm transition-colors duration-200">
+                  Become a Partner
+                </Link>
+              </li>
+              <li>
+                <Link href="#" className="text-gray-400 hover:text-fasty-yellow text-sm transition-colors duration-200">
+                  Careers
+                </Link>
+              </li>
+              <li>
+                <Link href="/privacy" className="text-gray-400 hover:text-fasty-yellow text-sm transition-colors duration-200">
+                  Privacy Policy
+                </Link>
+              </li>
             </ul>
           </div>
 
@@ -92,8 +105,13 @@ export default function Footer() {
           <p className="text-gray-500 text-sm">
             © {new Date().getFullYear()} Fasty-24. All rights reserved.
           </p>
-          <div className="flex items-center gap-2 text-fasty-yellow text-sm font-bold bg-fasty-yellow/10 px-4 py-2 rounded-full border border-fasty-yellow/20 shadow-[0_0_10px_rgba(255,215,0,0.1)]">
-            <span className="animate-pulse">⚡</span> 15-20 min service guarantee
+          <div className="flex flex-wrap items-center gap-4">
+            <Link href="/privacy" className="text-gray-500 hover:text-fasty-yellow text-sm transition-colors">
+              Privacy Policy
+            </Link>
+            <div className="flex items-center gap-2 text-fasty-yellow text-sm font-bold bg-fasty-yellow/10 px-4 py-2 rounded-full border border-fasty-yellow/20 shadow-[0_0_10px_rgba(255,215,0,0.1)]">
+              <span className="animate-pulse">⚡</span> 15-20 min service guarantee
+            </div>
           </div>
         </div>
       </div>

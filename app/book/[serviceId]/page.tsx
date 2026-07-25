@@ -216,7 +216,7 @@ function BookFlow() {
                 </div>
               </div>
 
-              {service.inclusions.length > 0 && (
+              {(service.inclusions?.length ?? 0) > 0 && (
                 <div className="bg-fasty-black/30 rounded-2xl p-4 border border-white/5">
                   <p className="text-xs font-bold text-gray-400 uppercase tracking-wider mb-3">What&apos;s included</p>
                   <ul className="grid grid-cols-1 sm:grid-cols-2 gap-2">

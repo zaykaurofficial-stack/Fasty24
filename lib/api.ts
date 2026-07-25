@@ -124,6 +124,8 @@ export type BookingStatus =
   | 'scheduled'
   | 'searching'
   | 'assigned'
+  | 'travelling'
+  | 'arrived'
   | 'in_progress'
   | 'completed'
   | 'cancelled';
@@ -142,6 +144,7 @@ export interface Booking {
   timeline: {
     createdAt?: string;
     assignedAt?: string | null;
+    enRouteAt?: string | null;
     arrivedAt?: string | null;
     startedAt?: string | null;
     completedAt?: string | null;
@@ -482,8 +485,68 @@ export function adminGetBookings() {
   return apiFetch<Booking[]>('/admin/bookings', { admin: true });
 }
 
-export function adminGetExperts() {
-  return apiFetch<Record<string, unknown>[]>('/admin/experts', { admin: true });
+export function adminGetExperts(kycStatus?: string) {
+  const qs = kycStatus ? `?kycStatus=${encodeURIComponent(kycStatus)}` : '';
+  return apiFetch<AdminExpert[]>(`/admin/experts${qs}`, { admin: true });
+}
+
+export function adminGetExpert(id: string) {
+  return apiFetch<AdminExpertDetail>(`/admin/experts/${id}`, { admin: true });
+}
+
+export function adminApproveExpert(id: string) {
+  return apiFetch<AdminExpert>(`/admin/experts/${id}/approve`, {
+    admin: true,
+    method: 'POST',
+    body: JSON.stringify({}),
+  });
+}
+
+export function adminRejectExpert(id: string, note: string) {
+  return apiFetch<AdminExpert>(`/admin/experts/${id}/reject`, {
+    admin: true,
+    method: 'POST',
+    body: JSON.stringify({ note }),
+  });
+}
+
+export interface AdminExpert {
+  id: string;
+  name?: string;
+  phone?: string;
+  status?: string;
+  rating?: number;
+  completedJobs?: number;
+  skills?: string[];
+  specialization?: string;
+  kycStatus?: string;
+  kycNote?: string;
+  kycSubmittedAt?: string | null;
+  photoUrl?: string;
+  documents?: {
+    aadhaarNumber?: string;
+    aadhaarFrontUrl?: string;
+    aadhaarBackUrl?: string;
+    panNumber?: string;
+    panUrl?: string;
+    selfieUrl?: string;
+  };
+  bank?: {
+    accountNumber?: string;
+    ifsc?: string;
+    holderName?: string;
+  };
+}
+
+export interface AdminExpertDetail extends AdminExpert {
+  arrivalSelfies?: {
+    bookingId: string;
+    status: string;
+    url: string | null;
+    capturedAt: string | null;
+    address: string;
+    serviceName: string;
+  }[];
 }
 
 export async function adminUploadImage(file: File): Promise<{ url: string; publicId: string }> {
@@ -507,12 +570,21 @@ export const STATUS_LABELS: Record<string, { label: string; color: string }> = {
   scheduled: { label: 'Scheduled', color: 'bg-blue-100 text-blue-800' },
   searching: { label: 'Finding professional', color: 'bg-yellow-100 text-yellow-800' },
   assigned: { label: 'Professional assigned', color: 'bg-amber-200 text-amber-900' },
+  travelling: { label: 'Expert on the way', color: 'bg-yellow-100 text-yellow-900' },
+  arrived: { label: 'Expert arrived', color: 'bg-cyan-100 text-cyan-900' },
   in_progress: { label: 'In progress', color: 'bg-fasty-black text-fasty-yellow' },
   completed: { label: 'Completed', color: 'bg-green-100 text-green-800' },
   cancelled: { label: 'Cancelled', color: 'bg-red-100 text-red-800' },
 };
 
-export const ACTIVE_STATUSES: BookingStatus[] = ['searching', 'assigned', 'in_progress', 'scheduled'];
+export const ACTIVE_STATUSES: BookingStatus[] = [
+  'searching',
+  'assigned',
+  'travelling',
+  'arrived',
+  'in_progress',
+  'scheduled',
+];
 
 export function errorMessage(err: unknown): string {
   const map: Record<string, string> = {

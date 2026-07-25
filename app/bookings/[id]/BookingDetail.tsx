@@ -18,8 +18,10 @@ import { toast } from '@/lib/toast';
 
 const STEPS: { key: BookingStatus; label: string; icon: string; desc: string }[] = [
   { key: 'searching', label: 'Finding a professional', icon: '🔍', desc: 'Matching you with the nearest verified expert…' },
-  { key: 'assigned', label: 'Professional assigned', icon: '🧑‍🔧', desc: 'Your expert is on their way' },
-  { key: 'in_progress', label: 'Service in progress', icon: '🛠️', desc: 'Work is underway at your location' },
+  { key: 'assigned', label: 'Professional assigned', icon: '🧑‍🔧', desc: 'Your expert accepted the job' },
+  { key: 'travelling', label: 'Expert on the way', icon: '🚗', desc: 'Your expert is travelling to your location' },
+  { key: 'arrived', label: 'Expert arrived', icon: '🚪', desc: 'Share the start OTP with your expert' },
+  { key: 'in_progress', label: 'Service in progress', icon: '🛠️', desc: 'Work is underway — share the end OTP when done' },
   { key: 'completed', label: 'Completed', icon: '✅', desc: 'Service completed successfully' },
 ];
 
@@ -28,8 +30,10 @@ const ORDER: Record<BookingStatus, number> = {
   scheduled: 0,
   searching: 1,
   assigned: 2,
-  in_progress: 3,
-  completed: 4,
+  travelling: 3,
+  arrived: 4,
+  in_progress: 5,
+  completed: 6,
   cancelled: -1,
 };
 
@@ -64,7 +68,8 @@ export default function BookingDetail({ id }: { id: string }) {
     subscribeToBooking(id);
 
     const onStatus = () => refresh();
-    const onArrived = () => { toast('Your professional has arrived! 🚪', 'success'); refresh(); };
+    const onArrived = () => { toast('Your professional has arrived! Share the start OTP.', 'success'); refresh(); };
+    const onEnRoute = () => { toast('Your professional is on the way 🚗', 'success'); refresh(); };
     const onLocation = (payload: { lat: number; lng: number }) => {
       setBooking((prev) =>
         prev?.expert ? { ...prev, expert: { ...prev.expert, lastLocation: { ...payload, updatedAt: new Date().toISOString() } } } : prev,
@@ -73,13 +78,17 @@ export default function BookingDetail({ id }: { id: string }) {
     const onFailed = () => { toast('No professional available nearby. Please try again.', 'error'); refresh(); };
 
     socket.on('booking:status', onStatus);
+    socket.on('booking:update', onStatus);
     socket.on('booking:arrived', onArrived);
+    socket.on('booking:en_route', onEnRoute);
     socket.on('booking:expert_location', onLocation);
     socket.on('booking:failed', onFailed);
 
     return () => {
       socket.off('booking:status', onStatus);
+      socket.off('booking:update', onStatus);
       socket.off('booking:arrived', onArrived);
+      socket.off('booking:en_route', onEnRoute);
       socket.off('booking:expert_location', onLocation);
       socket.off('booking:failed', onFailed);
       unsubscribeFromBooking(id);
@@ -88,7 +97,7 @@ export default function BookingDetail({ id }: { id: string }) {
 
   // Polling fallback for active bookings
   useEffect(() => {
-    const active: BookingStatus[] = ['searching', 'assigned', 'in_progress'];
+    const active: BookingStatus[] = ['searching', 'assigned', 'travelling', 'arrived', 'in_progress'];
     if (!booking || !active.includes(booking.status)) return;
     const t = setInterval(() => refresh(), 5000);
     return () => clearInterval(t);
@@ -237,10 +246,12 @@ export default function BookingDetail({ id }: { id: string }) {
                       </p>
                       {active && (
                         <p className="text-xs text-gray-400 mt-0.5">
-                          {booking.status === 'assigned' && booking.quotedEtaMin
+                          {booking.status === 'travelling' && booking.quotedEtaMin
                             ? `ETA ~${Math.round(booking.quotedEtaMin)} min${booking.distanceKm ? ` · ${booking.distanceKm} km away` : ''}`
-                            : booking.status === 'assigned' && booking.timeline?.arrivedAt
-                            ? '✅ Professional has arrived at your location'
+                            : booking.status === 'arrived'
+                            ? 'Share the start OTP below with your professional'
+                            : booking.status === 'in_progress'
+                            ? 'Share the completion OTP below when the work is done'
                             : step.desc}
                         </p>
                       )}

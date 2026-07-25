@@ -171,7 +171,7 @@ export default function ServiceDetail({ slug }: { slug: string }) {
           )}
 
           {/* Inclusions */}
-          {service.inclusions.length > 0 && (
+          {(service.inclusions?.length ?? 0) > 0 && (
             <div className="bg-white/4 border border-white/8 rounded-2xl p-6">
               <p className="text-xs font-bold text-gray-400 uppercase tracking-widest mb-4">What&apos;s included</p>
               <ul className="grid grid-cols-1 sm:grid-cols-2 gap-3">
@@ -190,11 +190,11 @@ export default function ServiceDetail({ slug }: { slug: string }) {
           )}
 
           {/* Exclusions */}
-          {service.exclusions.length > 0 && (
+          {(service.exclusions?.length ?? 0) > 0 && (
             <div className="bg-red-500/5 border border-red-500/15 rounded-2xl p-6">
               <p className="text-xs font-bold text-red-400/70 uppercase tracking-widest mb-4">Not included</p>
               <ul className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                {service.exclusions.map((exc) => (
+                {(service.exclusions ?? []).map((exc) => (
                   <li key={exc} className="flex items-center gap-2.5 text-sm text-gray-400">
                     <span className="text-red-400 text-xs">✕</span>
                     {exc}
@@ -212,7 +212,7 @@ export default function ServiceDetail({ slug }: { slug: string }) {
               <p className="text-gray-400">Exactly what to expect when our professional arrives.</p>
             </div>
 
-            {service.process.length > 0 ? (
+            {(service.process?.length ?? 0) > 0 ? (
               <div className="space-y-8">
                 {service.process.map((step, i) => (
                   <div
@@ -260,7 +260,7 @@ export default function ServiceDetail({ slug }: { slug: string }) {
           </div>
 
           {/* Gallery */}
-          {service.gallery.length > 0 && (
+          {(service.gallery?.length ?? 0) > 0 && (
             <div>
               <div className="mb-6">
                 <span className="text-fasty-yellow text-xs font-bold uppercase tracking-widest mb-2 block">Gallery</span>
@@ -278,7 +278,7 @@ export default function ServiceDetail({ slug }: { slug: string }) {
           )}
 
           {/* FAQs */}
-          {service.faqs.length > 0 && (
+          {(service.faqs?.length ?? 0) > 0 && (
             <div>
               <div className="mb-6">
                 <span className="text-fasty-yellow text-xs font-bold uppercase tracking-widest mb-2 block">FAQ</span>
@@ -315,7 +315,7 @@ export default function ServiceDetail({ slug }: { slug: string }) {
               </div>
 
               <ul className="space-y-3 my-5">
-                {(service.inclusions.length > 0 ? service.inclusions : [
+                {((service.inclusions?.length ?? 0) > 0 ? service.inclusions : [
                   'Verified professional',
                   'Genuine parts & materials',
                   'OTP-verified completion',

@@ -6,6 +6,7 @@ import Link from 'next/link';
 import { getCategories, Category, Service, errorMessage } from '@/lib/api';
 import { toast } from '@/lib/toast';
 import { SERVICE_ICONS } from '@/lib/content';
+import CategoryCard from '@/components/CategoryCard';
 
 function ServiceListCard({ service, categoryName }: { service: Service; categoryName: string }) {
   const href = `/services/${service.slug || service.id}`;
@@ -150,37 +151,38 @@ function CategoriesContent() {
       {/* Loading */}
       {loading && (
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-12">
-          <div className="grid sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-5">
-            {Array.from({ length: 8 }).map((_, i) => (
-              <div key={i} className="h-80 rounded-2xl bg-white/5 animate-pulse" />
+          <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-6">
+            {Array.from({ length: 6 }).map((_, i) => (
+              <div key={i} className="aspect-[4/5] rounded-3xl bg-white/5 animate-pulse" />
             ))}
           </div>
         </div>
       )}
 
-      {/* Services */}
-      {!loading && (
+      {/* All categories — premium full-bleed cards */}
+      {!loading && !selectedSlug && (
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-12">
+          {categories.length === 0 ? (
+            <div className="text-center py-24">
+              <p className="text-gray-400 text-lg mb-4">No categories found.</p>
+            </div>
+          ) : (
+            <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-6">
+              {categories.map((cat) => (
+                <CategoryCard key={cat.id} category={cat} />
+              ))}
+            </div>
+          )}
+        </div>
+      )}
+
+      {/* Selected category — its services */}
+      {!loading && selectedSlug && (
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-12 space-y-16">
           {filtered.map((cat) => {
             const services = cat.services ?? [];
-            if (!services.length && !loading) return null;
             return (
               <div key={cat.id}>
-                <div className="flex items-end justify-between mb-8">
-                  <div>
-                    <span className="text-fasty-yellow text-xs font-bold uppercase tracking-widest mb-2 block">
-                      {SERVICE_ICONS[cat.slug] || ''} {cat.name}
-                    </span>
-                    <h2 className="text-2xl md:text-3xl font-extrabold text-white">{cat.name}</h2>
-                    {cat.description && (
-                      <p className="text-gray-400 text-sm mt-1">{cat.description}</p>
-                    )}
-                  </div>
-                  {services.length > 0 && (
-                    <span className="text-gray-500 text-xs font-medium shrink-0">{services.length} services</span>
-                  )}
-                </div>
-
                 {services.length === 0 ? (
                   <div className="bg-white/3 border border-dashed border-white/10 rounded-2xl p-10 text-center">
                     <span className="text-4xl mb-3 block opacity-30">🛠️</span>
@@ -197,7 +199,7 @@ function CategoriesContent() {
             );
           })}
 
-          {!loading && filtered.length === 0 && (
+          {filtered.length === 0 && (
             <div className="text-center py-24">
               <p className="text-gray-400 text-lg mb-4">No services found.</p>
               <Link href="/categories" className="text-fasty-yellow font-bold hover:underline">

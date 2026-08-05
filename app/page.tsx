@@ -5,9 +5,10 @@ import Image from 'next/image';
 import Link from 'next/link';
 import SectionHeader from '@/components/SectionHeader';
 import Hero from '@/components/Hero';
+import CategoryCard from '@/components/CategoryCard';
 import { getCategories, Category, errorMessage } from '@/lib/api';
 import { toast } from '@/lib/toast';
-import { SERVICE_ICONS, WHY_US, TESTIMONIALS, FAQ, STATS, SITE } from '@/lib/content';
+import { WHY_US, TESTIMONIALS, FAQ, STATS, SITE } from '@/lib/content';
 
 function ServicesSection() {
   const [categories, setCategories] = useState<Category[]>([]);
@@ -24,7 +25,7 @@ function ServicesSection() {
     return (
       <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-6 mt-12">
         {Array.from({ length: 6 }).map((_, i) => (
-          <div key={i} className="h-64 rounded-3xl bg-white/5 animate-pulse" />
+          <div key={i} className="aspect-[4/5] rounded-3xl bg-white/5 animate-pulse" />
         ))}
       </div>
     );
@@ -34,56 +35,9 @@ function ServicesSection() {
 
   return (
     <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-6 mt-12">
-      {categories.slice(0, 6).map((cat) => {
-        const icon = SERVICE_ICONS[cat.slug] || '🛠️';
-        const minPrice = (cat.services ?? []).length > 0
-          ? Math.min(...(cat.services ?? []).map((s) => s.price))
-          : null;
-        return (
-          <Link
-            key={cat.id}
-            href={`/categories?cat=${cat.slug}`}
-            className="group relative flex flex-col bg-[#141414] border border-white/8 rounded-3xl overflow-hidden hover:border-fasty-yellow/40 transition-all duration-500 hover:-translate-y-1.5 hover:shadow-[0_24px_48px_-16px_rgba(255,196,0,0.15)]"
-          >
-            {/* Image / Icon area */}
-            <div className="relative h-48 overflow-hidden">
-              {cat.imageUrl ? (
-                /* eslint-disable-next-line @next/next/no-img-element */
-                <img
-                  src={cat.imageUrl}
-                  alt={cat.name}
-                  className="w-full h-full object-cover transition-transform duration-700 group-hover:scale-105"
-                />
-              ) : (
-                <div className="w-full h-full flex items-center justify-center bg-gradient-to-br from-white/5 to-transparent">
-                  <span className="text-6xl opacity-50 group-hover:scale-110 transition-transform duration-500">{icon}</span>
-                </div>
-              )}
-              <div className="absolute inset-0 bg-gradient-to-t from-[#141414] via-[#141414]/20 to-transparent" />
-              {minPrice !== null && (
-                <span className="absolute top-3 left-3 bg-fasty-yellow text-fasty-black text-xs font-extrabold px-3 py-1.5 rounded-full">
-                  From ₹{minPrice}
-                </span>
-              )}
-            </div>
-            {/* Content */}
-            <div className="p-5 flex-1 flex flex-col">
-              <h3 className="text-base font-bold text-white mb-1.5 group-hover:text-fasty-yellow transition-colors duration-300">
-                {cat.name}
-              </h3>
-              <p className="text-xs text-gray-400 line-clamp-2 leading-relaxed mb-3">
-                {cat.description || 'Trusted professionals, transparent pricing, fast arrival.'}
-              </p>
-              <div className="mt-auto flex items-center justify-between pt-3 border-t border-white/5">
-                <span className="text-xs text-gray-500">{(cat.services ?? []).length} services</span>
-                <span className="text-xs font-bold text-fasty-yellow group-hover:translate-x-0.5 transition-transform">
-                  Explore →
-                </span>
-              </div>
-            </div>
-          </Link>
-        );
-      })}
+      {categories.slice(0, 6).map((cat) => (
+        <CategoryCard key={cat.id} category={cat} />
+      ))}
     </div>
   );
 }

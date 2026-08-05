@@ -13,7 +13,7 @@ export const SERVICE_IMAGES: Record<string, string> = {
   '2': 'https://images.unsplash.com/photo-1603953535940-276e033e9d89?w=800&q=80', // RO Service
   '3': 'https://images.unsplash.com/photo-1581578731548-c64695be6952?w=800&q=80', // Maid
   '4': 'https://images.unsplash.com/photo-1584622650111-993a426fbf0a?w=800&q=80', // Fridge
-  '5': 'https://images.unsplash.com/photo-1584622650111-993a426fbf0a?w=800&q=80', // Bathroom
+  '5': 'https://images.unsplash.com/photo-1621905251189-08b45249bd82?w=800&q=80', // Electrician
   '6': 'https://images.unsplash.com/photo-1584622650111-993a426fbf0a?w=800&q=80', // Chimney
 };
 
@@ -33,7 +33,7 @@ export const CATEGORIES_RICH = [
   {
     id: '3',
     name: 'Instant Maid',
-    description: 'Professional household help in minutes.',
+    description: 'A verified maid by the hour — from 30 minutes to 2 hours.',
     image: SERVICE_IMAGES['3'],
   },
   {
@@ -44,8 +44,8 @@ export const CATEGORIES_RICH = [
   },
   {
     id: '5',
-    name: 'Bathroom Cleaning',
-    description: 'Deep cleaning for hygienic bathrooms.',
+    name: 'Electrician',
+    description: 'Fan fitting, switch repairs and electrical work.',
     image: SERVICE_IMAGES['5'],
   },
   {
@@ -87,7 +87,8 @@ const ACCENT_MAP: Record<string, string> = {
   'instant-maid': 'from-emerald-400/40 to-green-500/40',
   fridge: 'from-blue-500/40 to-indigo-500/40',
   chimney: 'from-gray-500/40 to-slate-600/40',
-  'bathroom-cleaning': 'from-teal-400/40 to-cyan-600/40',
+  electrician: 'from-amber-400/40 to-orange-500/40',
+  plumber: 'from-teal-400/40 to-cyan-600/40',
 };
 
 export function accentFor(slug?: string): string {
@@ -101,5 +102,6 @@ export const SERVICE_ICONS: Record<string, string> = {
   'instant-maid': '🧹',
   fridge: '🧊',
   chimney: '🔥',
-  'bathroom-cleaning': '🚿',
+  electrician: '⚡',
+  plumber: '🔧',
 };

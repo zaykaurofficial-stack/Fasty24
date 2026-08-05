@@ -33,7 +33,7 @@ export default function Footer() {
           <div>
             <h4 className="text-white font-bold mb-6 text-lg">Popular Services</h4>
             <ul className="space-y-4">
-              {['AC Repair & Services', 'RO Repair & Servicing', 'Instant Maid', 'Fridge Services', 'Bathroom Cleaning'].map((link) => (
+              {['AC Repair & Services', 'RO Repair & Servicing', 'Instant Maid', 'Fridge Services', 'Electrician'].map((link) => (
                 <li key={link}>
                   <Link href="/categories" className="text-gray-400 hover:text-fasty-yellow text-sm transition-colors duration-200 flex items-center gap-2 group">
                     <span className="w-1 h-1 rounded-full bg-fasty-yellow/30 group-hover:bg-fasty-yellow group-hover:scale-150 transition-all" /> 

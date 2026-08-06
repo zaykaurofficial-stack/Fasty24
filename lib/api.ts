@@ -549,6 +549,174 @@ export interface AdminExpertDetail extends AdminExpert {
   }[];
 }
 
+/* ------------------------------------------------------------------ */
+/* Parts, estimates and payments                                      */
+/* ------------------------------------------------------------------ */
+
+export interface Part {
+  id: string;
+  slug: string;
+  name: string;
+  sku: string;
+  brand: string;
+  description: string;
+  imageUrl: string;
+  categories: string[];
+  serviceSlugs: string[];
+  kind: 'part' | 'kit' | 'consumable' | 'labour';
+  unit: string;
+  price: number;
+  costPrice?: number;
+  taxPercent: number | null;
+  active: boolean;
+  source: 'catalog' | 'expert_custom';
+  verificationStatus: 'approved' | 'pending' | 'rejected';
+  usageCount: number;
+  adminNote: string;
+  createdByExpertName?: string | null;
+  createdAt?: string;
+}
+
+export interface AdminEstimate {
+  id: string;
+  estimateNo: string;
+  bookingId: string | null;
+  status: string;
+  lines: {
+    id: string;
+    name: string;
+    kind: string;
+    qty: number;
+    unitPrice: number;
+    lineTotal: number;
+    isCustom: boolean;
+    proofImages: { url: string }[];
+  }[];
+  pricing: { subtotal: number; tax: number; total: number };
+  payment: { status: string; method: string | null; paidAt: string | null };
+  settled: boolean;
+  proofComplete: boolean;
+  expertName: string | null;
+  customerName: string | null;
+  createdAt?: string;
+}
+
+export interface AdminPayment {
+  id: string;
+  kind: 'booking' | 'estimate';
+  bookingId: string | null;
+  estimateId: string | null;
+  customerName: string | null;
+  customerPhone: string | null;
+  amount: number;
+  method: string;
+  status: string;
+  razorpay: { paymentId: string | null; linkId: string | null; shortUrl: string | null };
+  paidAt: string | null;
+  createdAt?: string;
+}
+
+export function adminGetParts(params: { category?: string; verificationStatus?: string; q?: string } = {}) {
+  const qs = new URLSearchParams();
+  if (params.category) qs.set('category', params.category);
+  if (params.verificationStatus) qs.set('verificationStatus', params.verificationStatus);
+  if (params.q) qs.set('q', params.q);
+  const suffix = qs.toString() ? `?${qs.toString()}` : '';
+  return apiFetch<Part[]>(`/admin/parts${suffix}`, { admin: true });
+}
+
+export function adminCreatePart(data: Partial<Part>) {
+  return apiFetch<Part>('/admin/parts', { admin: true, method: 'POST', body: JSON.stringify(data) });
+}
+
+export function adminUpdatePart(id: string, data: Partial<Part>) {
+  return apiFetch<Part>(`/admin/parts/${id}`, { admin: true, method: 'PATCH', body: JSON.stringify(data) });
+}
+
+export function adminDeletePart(id: string) {
+  return apiFetch<{ ok: boolean }>(`/admin/parts/${id}`, { admin: true, method: 'DELETE' });
+}
+
+export function adminApprovePart(id: string, data: Partial<Part> = {}) {
+  return apiFetch<Part>(`/admin/parts/${id}/approve`, {
+    admin: true,
+    method: 'POST',
+    body: JSON.stringify(data),
+  });
+}
+
+export function adminRejectPart(id: string, note?: string) {
+  return apiFetch<Part>(`/admin/parts/${id}/reject`, {
+    admin: true,
+    method: 'POST',
+    body: JSON.stringify({ note }),
+  });
+}
+
+export function adminGetEstimates(params: { status?: string; paymentStatus?: string } = {}) {
+  const qs = new URLSearchParams();
+  if (params.status) qs.set('status', params.status);
+  if (params.paymentStatus) qs.set('paymentStatus', params.paymentStatus);
+  const suffix = qs.toString() ? `?${qs.toString()}` : '';
+  return apiFetch<AdminEstimate[]>(`/admin/estimates${suffix}`, { admin: true });
+}
+
+export function adminGetPayments(params: { kind?: string; status?: string } = {}) {
+  const qs = new URLSearchParams();
+  if (params.kind) qs.set('kind', params.kind);
+  if (params.status) qs.set('status', params.status);
+  const suffix = qs.toString() ? `?${qs.toString()}` : '';
+  return apiFetch<AdminPayment[]>(`/admin/payments${suffix}`, { admin: true });
+}
+
+/** Customer-side Razorpay Standard Checkout — create Order, then verify signature. */
+export interface RazorpayOrder {
+  keyId: string;
+  orderId: string;
+  amount: number;
+  amountPaise: number;
+  currency: string;
+  name: string;
+  description: string;
+  prefill?: {
+    name?: string;
+    contact?: string;
+    email?: string;
+  };
+}
+
+export interface RazorpayVerifyPayload {
+  razorpay_order_id: string;
+  razorpay_payment_id: string;
+  razorpay_signature: string;
+}
+
+export function createBookingPaymentOrder(bookingId: string) {
+  return apiFetch<RazorpayOrder>(`/bookings/${bookingId}/payment/order`, {
+    method: 'POST',
+  });
+}
+
+export function verifyBookingPayment(bookingId: string, payload: RazorpayVerifyPayload) {
+  return apiFetch<Booking>(`/bookings/${bookingId}/payment/verify`, {
+    method: 'POST',
+    body: JSON.stringify(payload),
+  });
+}
+
+/** @deprecated Prefer createBookingPaymentOrder + Standard Checkout; kept for QR/Payment Link. */
+export function createBookingPaymentLink(bookingId: string) {
+  return apiFetch<{ shortUrl: string; amount: number }>(`/bookings/${bookingId}/payment/link`, {
+    method: 'POST',
+  });
+}
+
+export function getBookingPaymentStatus(bookingId: string) {
+  return apiFetch<{ status: string; bookingStatus: string; amount: number }>(
+    `/bookings/${bookingId}/payment/status`,
+  );
+}
+
 export async function adminUploadImage(file: File): Promise<{ url: string; publicId: string }> {
   const fd = new FormData();
   fd.append('file', file);
@@ -596,6 +764,14 @@ export function errorMessage(err: unknown): string {
     wrong_role: 'You do not have access to this action.',
     invalid_token: 'Your session expired. Please sign in again.',
     missing_token: 'Please sign in to continue.',
+    razorpay_disabled: 'Online payments are not configured yet.',
+    invalid_signature: 'Payment verification failed. Please try again.',
+    order_mismatch: 'This payment does not match the booking. Please try again.',
+    already_paid: 'This has already been paid.',
+    estimate_unsettled: 'Collect payment for the approved estimate first.',
+    proof_photo_required: 'Upload a photo of every installed part first.',
+    lines_required: 'Add at least one item to the estimate.',
+    not_editable: 'Only draft estimates can be edited.',
   };
   if (err instanceof ApiError) return map[err.code] ?? err.code.replace(/_/g, ' ');
   if (err instanceof Error) return err.message;

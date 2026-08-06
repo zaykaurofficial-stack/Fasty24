@@ -8,11 +8,14 @@ import {
   getUser,
   cancelBooking,
   rateBooking,
+  createBookingPaymentOrder,
+  verifyBookingPayment,
   Booking,
   BookingStatus,
   STATUS_LABELS,
   errorMessage,
 } from '@/lib/api';
+import { openRazorpayCheckout, CheckoutCancelledError } from '@/lib/razorpayCheckout';
 import { getSocket, subscribeToBooking, unsubscribeFromBooking } from '@/lib/socket';
 import { toast } from '@/lib/toast';
 
@@ -112,6 +115,26 @@ export default function BookingDetail({ id }: { id: string }) {
       refresh();
     } catch (err) {
       toast(errorMessage(err), 'error');
+    } finally {
+      setWorking(false);
+    }
+  }
+
+  async function handlePayNow() {
+    if (!booking) return;
+    setWorking(true);
+    try {
+      const order = await createBookingPaymentOrder(booking.id);
+      const result = await openRazorpayCheckout(order);
+      await verifyBookingPayment(booking.id, result);
+      toast('Payment successful!', 'success');
+      refresh();
+    } catch (err) {
+      if (err instanceof CheckoutCancelledError) {
+        toast('Payment cancelled', 'info');
+      } else {
+        toast(errorMessage(err), 'error');
+      }
     } finally {
       setWorking(false);
     }
@@ -341,6 +364,15 @@ export default function BookingDetail({ id }: { id: string }) {
             <p className="text-xs text-gray-600 pt-1">
               Payment: <span className="capitalize text-gray-400">{booking.payment.status}</span>
             </p>
+            {booking.payment.status !== 'paid' && booking.status !== 'cancelled' && (
+              <button
+                onClick={handlePayNow}
+                disabled={working}
+                className="mt-3 w-full bg-fasty-yellow text-fasty-black font-bold py-3 rounded-xl hover:bg-yellow-400 transition-all disabled:opacity-50"
+              >
+                {working ? 'Opening checkout…' : `Pay ₹${booking.pricing.total}`}
+              </button>
+            )}
           </div>
         </div>
 

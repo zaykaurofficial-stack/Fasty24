@@ -10,11 +10,15 @@ import {
   addAddress,
   createBooking,
   confirmPayment,
+  createBookingPaymentOrder,
+  verifyBookingPayment,
+  ApiError,
   Service,
   Address,
   Slot,
   errorMessage,
 } from '@/lib/api';
+import { openRazorpayCheckout, CheckoutCancelledError } from '@/lib/razorpayCheckout';
 import ServiceImage from '@/components/ServiceImage';
 import { toast } from '@/lib/toast';
 
@@ -146,7 +150,25 @@ export default function BookFlow({ slug }: { slug: string }) {
         bookingType,
         ...(bookingType === 'scheduled' ? { slotId: selectedSlot!, date } : {}),
       });
-      await confirmPayment(booking.id);
+
+      try {
+        // Standard Checkout: create Order → open checkout.js modal → verify signature
+        const order = await createBookingPaymentOrder(booking.id);
+        const result = await openRazorpayCheckout(order);
+        await verifyBookingPayment(booking.id, result);
+      } catch (payErr) {
+        if (payErr instanceof CheckoutCancelledError) {
+          toast('Payment cancelled. You can retry from My Bookings.', 'error');
+          router.push(`/bookings/${booking.id}`);
+          return;
+        }
+        if (payErr instanceof ApiError && payErr.code === 'razorpay_disabled') {
+          await confirmPayment(booking.id);
+        } else {
+          throw payErr;
+        }
+      }
+
       toast('Booking confirmed!', 'success');
       router.push(`/bookings/${booking.id}`);
     } catch (err) {

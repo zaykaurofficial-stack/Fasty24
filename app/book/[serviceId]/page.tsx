@@ -9,11 +9,14 @@ import {
   getMe,
   getUser,
   createBooking,
+  createBookingPaymentOrder,
+  verifyBookingPayment,
   Service,
   Slot,
   Address,
   errorMessage,
 } from '@/lib/api';
+import { openRazorpayCheckout, CheckoutCancelledError } from '@/lib/razorpayCheckout';
 import { toast } from '@/lib/toast';
 
 const DEFAULT_LAT = 28.6139;
@@ -50,7 +53,7 @@ function BookFlow() {
   // Address
   const [savedAddresses, setSavedAddresses] = useState<Address[]>([]);
   const [selectedAddressId, setSelectedAddressId] = useState<string | null>(null);
-  const [useNewAddr, setUseNewAddr] = useState(false);
+  const [useNewAddr, setUseNewAddr] = useState(true);
   const [newLine1, setNewLine1] = useState('');
   const [newCity, setNewCity] = useState('Delhi');
   const [newPincode, setNewPincode] = useState('');
@@ -73,15 +76,33 @@ function BookFlow() {
       else { toast('Service not found', 'error'); router.push('/categories'); }
 
       if (meRes) {
-        const addrs = meRes.principal.addresses ?? [];
+        const addrs = (meRes.principal.addresses ?? []).map((a) => ({
+          ...a,
+          // Backend should send `id`; fall back so selection never silently fails
+          id: a.id || (a as { _id?: string })._id || '',
+        }));
         setSavedAddresses(addrs);
-        const def = addrs.find((a) => a.isDefault);
-        if (def) { setSelectedAddressId(def.id); setUseNewAddr(false); }
-        else if (addrs.length) { setSelectedAddressId(addrs[0].id); setUseNewAddr(false); }
-        else setUseNewAddr(true);
+        const def = addrs.find((a) => a.isDefault && a.id) ?? addrs.find((a) => a.id);
+        if (def) {
+          setSelectedAddressId(def.id);
+          setUseNewAddr(false);
+        } else {
+          setUseNewAddr(true);
+          setSelectedAddressId(null);
+        }
+      } else {
+        // Form is visible with no saved list — must treat typed fields as the address
+        setUseNewAddr(true);
       }
     }).finally(() => setLoadingService(false));
   }, [serviceId, router]);
+
+  // Whenever the typed form is what the user sees, keep useNewAddr in sync
+  useEffect(() => {
+    if (step === 3 && savedAddresses.length === 0) {
+      setUseNewAddr(true);
+    }
+  }, [step, savedAddresses.length]);
 
   // Fetch slots when switching to scheduled or changing date
   useEffect(() => {
@@ -109,12 +130,27 @@ function BookFlow() {
     setSubmitting(true);
     try {
       const booking = await createBooking({
-        serviceIds: [service.id],
+        serviceIds: [service.slug || service.id],
         location: addr,
         bookingType,
         slotId: selectedSlot?.slotId,
         date: bookingType === 'scheduled' ? selectedDate : undefined,
       });
+
+      // Standard Checkout — booking stays unpaid until the signature verifies
+      try {
+        const order = await createBookingPaymentOrder(booking.id);
+        const result = await openRazorpayCheckout(order);
+        await verifyBookingPayment(booking.id, result);
+      } catch (payErr) {
+        if (payErr instanceof CheckoutCancelledError) {
+          toast('Payment cancelled. You can retry from the booking page.', 'error');
+          router.push(`/bookings/${booking.id}`);
+          return;
+        }
+        throw payErr;
+      }
+
       toast('Booking confirmed! 🎉', 'success');
       router.push(`/bookings/${booking.id}`);
     } catch (err) {
@@ -125,17 +161,39 @@ function BookFlow() {
   }
 
   function buildAddress(): { address: string; lat: number; lng: number } | null {
-    if (useNewAddr) {
+    // Typed form is shown when useNewAddr OR there are no saved addresses.
+    // Prefer that path whenever the form is what the user is filling.
+    const usingTypedForm = useNewAddr || savedAddresses.length === 0;
+    if (usingTypedForm) {
       if (!newLine1.trim()) return null;
-      return { address: `${newLine1}, ${newCity} ${newPincode}`.trim(), lat: DEFAULT_LAT, lng: DEFAULT_LNG };
+      return {
+        address: [newLine1.trim(), newCity.trim(), newPincode.trim()].filter(Boolean).join(', '),
+        lat: DEFAULT_LAT,
+        lng: DEFAULT_LNG,
+      };
     }
-    const a = savedAddresses.find((x) => x.id === selectedAddressId);
-    if (!a) return null;
-    return {
-      address: [a.line1, a.line2, a.city, a.pincode].filter(Boolean).join(', '),
-      lat: a.lat ?? DEFAULT_LAT,
-      lng: a.lng ?? DEFAULT_LNG,
-    };
+
+    const a =
+      savedAddresses.find((x) => x.id && x.id === selectedAddressId) ||
+      savedAddresses.find((x) => String(x.id) === String(selectedAddressId));
+
+    if (a?.line1?.trim()) {
+      return {
+        address: [a.line1, a.line2, a.city, a.pincode].filter(Boolean).join(', '),
+        lat: a.lat ?? DEFAULT_LAT,
+        lng: a.lng ?? DEFAULT_LNG,
+      };
+    }
+
+    // Last resort: user typed into the form even while a saved card looked selected
+    if (newLine1.trim()) {
+      return {
+        address: [newLine1.trim(), newCity.trim(), newPincode.trim()].filter(Boolean).join(', '),
+        lat: DEFAULT_LAT,
+        lng: DEFAULT_LNG,
+      };
+    }
+    return null;
   }
 
   const totalPrice = service ? Math.round(service.price * 1.18) : 0;
@@ -398,7 +456,11 @@ function BookFlow() {
                     <input
                       type="text"
                       value={newLine1}
-                      onChange={(e) => setNewLine1(e.target.value)}
+                      onChange={(e) => {
+                        setUseNewAddr(true);
+                        setSelectedAddressId(null);
+                        setNewLine1(e.target.value);
+                      }}
                       placeholder="House no., street, landmark"
                       className="w-full px-4 py-3.5 bg-fasty-black/60 border border-white/10 rounded-xl text-white focus:outline-none focus:border-fasty-yellow/60 transition-all placeholder:text-gray-600 text-sm"
                     />
@@ -409,7 +471,11 @@ function BookFlow() {
                       <input
                         type="text"
                         value={newCity}
-                        onChange={(e) => setNewCity(e.target.value)}
+                        onChange={(e) => {
+                          setUseNewAddr(true);
+                          setSelectedAddressId(null);
+                          setNewCity(e.target.value);
+                        }}
                         className="w-full px-4 py-3.5 bg-fasty-black/60 border border-white/10 rounded-xl text-white focus:outline-none focus:border-fasty-yellow/60 transition-all text-sm"
                       />
                     </div>
@@ -418,7 +484,11 @@ function BookFlow() {
                       <input
                         type="text"
                         value={newPincode}
-                        onChange={(e) => setNewPincode(e.target.value)}
+                        onChange={(e) => {
+                          setUseNewAddr(true);
+                          setSelectedAddressId(null);
+                          setNewPincode(e.target.value);
+                        }}
                         placeholder="110001"
                         className="w-full px-4 py-3.5 bg-fasty-black/60 border border-white/10 rounded-xl text-white focus:outline-none focus:border-fasty-yellow/60 transition-all placeholder:text-gray-600 text-sm"
                       />

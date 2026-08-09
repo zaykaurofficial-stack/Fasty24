@@ -768,6 +768,11 @@ export function errorMessage(err: unknown): string {
     invalid_signature: 'Payment verification failed. Please try again.',
     order_mismatch: 'This payment does not match the booking. Please try again.',
     already_paid: 'This has already been paid.',
+    not_found:
+      'Server route missing or booking not found. Restart the Next.js app (it must proxy to your local backend), then log in again.',
+    outside_service_area: "We don't serve this location yet. Try an address in Vaishali / Ghaziabad.",
+    no_valid_services: 'This service is not available. Please pick another.',
+    amount_too_small: 'Minimum payment amount is ₹1.',
     estimate_unsettled: 'Collect payment for the approved estimate first.',
     proof_photo_required: 'Upload a photo of every installed part first.',
     lines_required: 'Add at least one item to the estimate.',

@@ -9,10 +9,8 @@ import {
   getSlots,
   addAddress,
   createBooking,
-  confirmPayment,
   createBookingPaymentOrder,
   verifyBookingPayment,
-  ApiError,
   Service,
   Address,
   Slot,
@@ -162,11 +160,7 @@ export default function BookFlow({ slug }: { slug: string }) {
           router.push(`/bookings/${booking.id}`);
           return;
         }
-        if (payErr instanceof ApiError && payErr.code === 'razorpay_disabled') {
-          await confirmPayment(booking.id);
-        } else {
-          throw payErr;
-        }
+        throw payErr;
       }
 
       toast('Booking confirmed!', 'success');

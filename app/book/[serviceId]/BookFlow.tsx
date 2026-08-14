@@ -11,6 +11,7 @@ import {
   createBooking,
   createBookingPaymentOrder,
   verifyBookingPayment,
+  cancelBooking,
   Service,
   Address,
   Slot,
@@ -155,9 +156,9 @@ export default function BookFlow({ slug }: { slug: string }) {
         const result = await openRazorpayCheckout(order);
         await verifyBookingPayment(booking.id, result);
       } catch (payErr) {
+        await cancelBooking(booking.id, 'payment_cancelled').catch(() => {});
         if (payErr instanceof CheckoutCancelledError) {
-          toast('Payment cancelled. You can retry from My Bookings.', 'error');
-          router.push(`/bookings/${booking.id}`);
+          toast('Payment cancelled. No booking was created.', 'info');
           return;
         }
         throw payErr;

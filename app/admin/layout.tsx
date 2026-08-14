@@ -8,6 +8,7 @@ import Logo from '@/components/Logo';
 
 const NAV = [
   { href: '/admin', label: 'Dashboard', icon: '📊' },
+  { href: '/admin/site-content', label: 'Homepage CMS', icon: '🏠' },
   { href: '/admin/services', label: 'Services', icon: '🛠️' },
   { href: '/admin/categories', label: 'Categories', icon: '🗂️' },
   { href: '/admin/parts', label: 'Parts', icon: '🔩' },

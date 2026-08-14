@@ -81,6 +81,104 @@ export const STATS = [
   { value: '4.8★', label: 'Average rating' },
 ];
 
+export const TRUST_ITEMS = [
+  'Background verified staff',
+  'OTP-secured jobs',
+  'Transparent pricing',
+  'UPI & card payments',
+  'Live job tracking',
+];
+
+export const HERO_DEFAULT = {
+  pill: 'Live in Delhi NCR • 15–20 min guarantee',
+  titleLine1: 'Premium home',
+  titleLine2: 'services,',
+  titleHighlight: 'delivered fast.',
+  subtitle:
+    "India's fastest home services platform. AC repair, RO servicing, instant maid, appliance repair & deep cleaning — verified pros at your door in minutes, not hours.",
+  socialProofRating: '4.8★',
+  socialProofText: 'from 50,000+ happy homes',
+  cards: [
+    { icon: '❄️', title: 'AC Repair', priceLabel: 'From ₹499' },
+    { icon: '💧', title: 'RO Service', priceLabel: 'From ₹399' },
+    { icon: '🧹', title: 'Instant Maid', priceLabel: 'From ₹299' },
+    { icon: '🧊', title: 'Fridge Repair', priceLabel: 'From ₹449' },
+  ],
+};
+
+export const CTA_DEFAULT = {
+  title: 'Ready for lightning-fast home service?',
+  subtitle: 'Join 50,000+ customers who trust Fasty-24 for repairs, cleaning & more.',
+};
+
+export const WHY_US_DEFAULT = WHY_US.map((item) => ({
+  title: item.title,
+  desc: item.desc,
+  icon: '✨',
+}));
+
+function nonempty(value?: string | null) {
+  return Boolean(value && String(value).trim());
+}
+
+function pickStr(value: string | undefined, fallback: string) {
+  return nonempty(value) ? String(value).trim() : fallback;
+}
+
+function pickList<T>(value: T[] | undefined, fallback: T[]) {
+  return Array.isArray(value) && value.length > 0 ? value : fallback;
+}
+
+/** Merge CMS payload with hardcoded defaults. Empty admin fields never blank the live site. */
+export function withHomepageFallbacks(cms?: Partial<{
+  site: { tagline?: string; phone?: string; email?: string; cities?: string[] };
+  hero: Partial<typeof HERO_DEFAULT> & { cards?: typeof HERO_DEFAULT.cards };
+  stats: typeof STATS;
+  trustItems: string[];
+  whyUs: { title: string; desc: string; icon?: string }[];
+  testimonials: { name: string; text: string; avatar?: string; rating?: number }[];
+  faq: typeof FAQ;
+  cta: { title?: string; subtitle?: string };
+}> | null) {
+  const hero = cms?.hero;
+  return {
+    site: {
+      tagline: pickStr(cms?.site?.tagline, SITE.tagline),
+      phone: pickStr(cms?.site?.phone, SITE.phone),
+      email: pickStr(cms?.site?.email, SITE.email),
+      cities: pickList(cms?.site?.cities?.filter((c) => nonempty(c)), SITE.cities),
+    },
+    hero: {
+      pill: pickStr(hero?.pill, HERO_DEFAULT.pill),
+      titleLine1: pickStr(hero?.titleLine1, HERO_DEFAULT.titleLine1),
+      titleLine2: pickStr(hero?.titleLine2, HERO_DEFAULT.titleLine2),
+      titleHighlight: pickStr(hero?.titleHighlight, HERO_DEFAULT.titleHighlight),
+      subtitle: pickStr(hero?.subtitle, HERO_DEFAULT.subtitle),
+      socialProofRating: pickStr(hero?.socialProofRating, HERO_DEFAULT.socialProofRating),
+      socialProofText: pickStr(hero?.socialProofText, HERO_DEFAULT.socialProofText),
+      cards: pickList(
+        hero?.cards?.filter((c) => nonempty(c?.title)),
+        HERO_DEFAULT.cards,
+      ),
+    },
+    stats: pickList(cms?.stats?.filter((s) => nonempty(s?.value) || nonempty(s?.label)), STATS),
+    trustItems: pickList(cms?.trustItems?.filter((t) => nonempty(t)), TRUST_ITEMS),
+    whyUs: pickList(
+      cms?.whyUs?.filter((w) => nonempty(w?.title)),
+      WHY_US_DEFAULT,
+    ),
+    testimonials: pickList(
+      cms?.testimonials?.filter((t) => nonempty(t?.name) && nonempty(t?.text)),
+      TESTIMONIALS,
+    ),
+    faq: pickList(cms?.faq?.filter((f) => nonempty(f?.q) && nonempty(f?.a)), FAQ),
+    cta: {
+      title: pickStr(cms?.cta?.title, CTA_DEFAULT.title),
+      subtitle: pickStr(cms?.cta?.subtitle, CTA_DEFAULT.subtitle),
+    },
+  };
+}
+
 const ACCENT_MAP: Record<string, string> = {
   'ac-service': 'from-blue-400/40 to-cyan-500/40',
   'ro-service': 'from-cyan-400/40 to-teal-500/40',

@@ -24,7 +24,6 @@ function LoginForm() {
   const [phone, setPhone] = useState('');
   const [otp, setOtp] = useState('');
   const [name, setName] = useState('');
-  const [gender, setGender] = useState('prefer_not_to_say');
   const [registrationToken, setRegistrationToken] = useState('');
   const [loading, setLoading] = useState(false);
 
@@ -84,10 +83,10 @@ function LoginForm() {
     }
     setLoading(true);
     try {
-      const res = await completeProfile(registrationToken, { name: name.trim(), gender });
+      const res = await completeProfile(registrationToken, { name: name.trim() });
       if (res.token && res.principal) {
         setAuth(res.token, res.principal);
-        toast('Welcome to Fasty-24! 🎉', 'success');
+        toast('Welcome to Fasty-24!', 'success');
         router.push(redirect);
       }
     } catch (err) {
@@ -269,19 +268,6 @@ function LoginForm() {
                     autoComplete="name"
                     required
                   />
-                </div>
-                <div>
-                  <label className="block text-sm font-bold text-gray-300 mb-2">Gender</label>
-                  <select
-                    value={gender}
-                    onChange={(e) => setGender(e.target.value)}
-                    className="w-full px-4 py-4 bg-fasty-black border border-white/10 rounded-xl text-white focus:outline-none focus:border-fasty-yellow/60 focus:ring-1 focus:ring-fasty-yellow/30 transition-all"
-                  >
-                    <option value="male">Male</option>
-                    <option value="female">Female</option>
-                    <option value="other">Other</option>
-                    <option value="prefer_not_to_say">Prefer not to say</option>
-                  </select>
                 </div>
                 <button
                   type="submit"

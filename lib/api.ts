@@ -77,6 +77,33 @@ export interface Category {
   services?: Service[];
 }
 
+export interface SiteContent {
+  id?: string;
+  site: {
+    tagline: string;
+    phone: string;
+    email: string;
+    cities: string[];
+  };
+  hero: {
+    pill: string;
+    titleLine1: string;
+    titleLine2: string;
+    titleHighlight: string;
+    subtitle: string;
+    socialProofRating: string;
+    socialProofText: string;
+    cards: { icon: string; title: string; priceLabel: string }[];
+  };
+  stats: { value: string; label: string }[];
+  trustItems: string[];
+  whyUs: { title: string; desc: string; icon?: string }[];
+  testimonials: { name: string; text: string; avatar: string; rating?: number }[];
+  faq: { q: string; a: string }[];
+  cta: { title: string; subtitle: string };
+  updatedAt?: string | null;
+}
+
 export interface Address {
   id: string;
   label: string;
@@ -333,6 +360,10 @@ export function getMe() {
 
 export function getCategories() {
   return apiFetch<Category[]>('/categories');
+}
+
+export function getSiteContent() {
+  return apiFetch<SiteContent>('/site-content');
 }
 
 export function getServices(category?: string) {
@@ -667,6 +698,18 @@ export function adminGetPayments(params: { kind?: string; status?: string } = {}
   if (params.status) qs.set('status', params.status);
   const suffix = qs.toString() ? `?${qs.toString()}` : '';
   return apiFetch<AdminPayment[]>(`/admin/payments${suffix}`, { admin: true });
+}
+
+export function adminGetSiteContent() {
+  return apiFetch<SiteContent>('/admin/site-content', { admin: true });
+}
+
+export function adminUpdateSiteContent(data: Partial<SiteContent>) {
+  return apiFetch<SiteContent>('/admin/site-content', {
+    admin: true,
+    method: 'PUT',
+    body: JSON.stringify(data),
+  });
 }
 
 /** Customer-side Razorpay Standard Checkout — create Order, then verify signature. */

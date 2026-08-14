@@ -24,6 +24,7 @@ export default function ServiceDetail({ slug }: { slug: string }) {
   const [loading, setLoading] = useState(true);
   const [notFound, setNotFound] = useState(false);
   const [activeImg, setActiveImg] = useState<string | null>(null);
+  const [rateOpen, setRateOpen] = useState(false);
 
   useEffect(() => {
     let mounted = true;
@@ -63,6 +64,8 @@ export default function ServiceDetail({ slug }: { slug: string }) {
   const accent = service.categories?.[0];
   const thumbs = [service.imageUrl, ...(service.gallery || [])].filter(Boolean) as string[];
   const bookHref = `/book/${service.slug || service.id}`;
+  const rateBrands = (service.rateCard?.brands || []).filter((b) => (b.items?.length ?? 0) > 0);
+  const hasRateCard = rateBrands.length > 0;
 
   return (
     <main className="min-h-screen bg-fasty-black text-white animate-fade-in">
@@ -107,15 +110,26 @@ export default function ServiceDetail({ slug }: { slug: string }) {
                 </span>
               </div>
 
-              <Link
-                href={bookHref}
-                className="inline-flex items-center gap-2 bg-fasty-yellow text-fasty-black font-extrabold px-8 py-4 rounded-xl hover:bg-yellow-400 hover:scale-105 transition-all duration-300 shadow-[0_4px_24px_rgba(255,196,0,0.3)] text-base"
-              >
-                Book this service
-                <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M17 8l4 4m0 0l-4 4m4-4H3" />
-                </svg>
-              </Link>
+              <div className="flex flex-wrap items-center gap-3 mb-8">
+                <Link
+                  href={bookHref}
+                  className="inline-flex items-center gap-2 bg-fasty-yellow text-fasty-black font-extrabold px-8 py-4 rounded-xl hover:bg-yellow-400 hover:scale-105 transition-all duration-300 shadow-[0_4px_24px_rgba(255,196,0,0.3)] text-base"
+                >
+                  Book this service
+                  <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M17 8l4 4m0 0l-4 4m4-4H3" />
+                  </svg>
+                </Link>
+                {hasRateCard && (
+                  <button
+                    type="button"
+                    onClick={() => setRateOpen(true)}
+                    className="inline-flex items-center gap-2 bg-transparent border border-white/20 text-white font-bold px-6 py-4 rounded-xl hover:border-fasty-yellow hover:text-fasty-yellow transition-all"
+                  >
+                    View rate card
+                  </button>
+                )}
+              </div>
             </div>
 
             {/* Right: Image */}
@@ -204,35 +218,16 @@ export default function ServiceDetail({ slug }: { slug: string }) {
             </div>
           )}
 
-          {(service.rateCard?.items?.length ?? 0) > 0 && (
-            <div className="bg-white/4 border border-fasty-yellow/25 rounded-2xl overflow-hidden">
-              <div className="px-6 py-4 border-b border-white/8 flex items-center justify-between">
-                <div>
-                  <p className="text-xs font-bold text-fasty-yellow uppercase tracking-widest mb-1">Category rate card</p>
-                  <h2 className="text-xl font-extrabold text-white">{service.rateCard?.title || 'Rate card'}</h2>
-                </div>
-              </div>
-              <div className="overflow-x-auto">
-                <table className="w-full text-sm">
-                  <thead>
-                    <tr className="text-left text-gray-500 border-b border-white/8">
-                      <th className="px-6 py-3 font-bold">Item</th>
-                      <th className="px-6 py-3 font-bold">Price</th>
-                      <th className="px-6 py-3 font-bold">Notes</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {service.rateCard!.items.map((row, i) => (
-                      <tr key={`${row.name}-${i}`} className="border-b border-white/5 last:border-0">
-                        <td className="px-6 py-3 text-white font-medium">{row.name}</td>
-                        <td className="px-6 py-3 text-fasty-yellow font-extrabold whitespace-nowrap">₹{row.price}</td>
-                        <td className="px-6 py-3 text-gray-400">{row.notes || '—'}</td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
-              </div>
-            </div>
+          {hasRateCard && (
+            <button
+              type="button"
+              onClick={() => setRateOpen(true)}
+              className="w-full text-left bg-white/4 border border-fasty-yellow/25 rounded-2xl px-6 py-5 hover:border-fasty-yellow/50 transition-colors"
+            >
+              <p className="text-xs font-bold text-fasty-yellow uppercase tracking-widest mb-1">Rate card</p>
+              <p className="text-white font-extrabold">{service.rateCard?.title || 'View brand-wise rates'}</p>
+              <p className="text-sm text-gray-400 mt-1">Kent, Pureit and more — tap to open</p>
+            </button>
           )}
 
           {/* How we do it — Process steps */}
@@ -421,6 +416,62 @@ export default function ServiceDetail({ slug }: { slug: string }) {
             </div>
           </div>
         </section>
+      )}
+
+      {rateOpen && hasRateCard && (
+        <div
+          className="fixed inset-0 z-[100] bg-black/70 backdrop-blur-sm flex items-end sm:items-center justify-center p-0 sm:p-6"
+          onClick={() => setRateOpen(false)}
+        >
+          <div
+            className="bg-fasty-black border border-white/10 w-full sm:max-w-2xl sm:rounded-3xl rounded-t-3xl max-h-[88vh] flex flex-col shadow-2xl"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div className="flex items-center justify-between px-6 py-4 border-b border-white/10 shrink-0">
+              <div>
+                <p className="text-xs font-bold text-fasty-yellow uppercase tracking-widest">Rate card</p>
+                <h2 className="text-xl font-extrabold text-white">{service.rateCard?.title || 'Rate card'}</h2>
+              </div>
+              <button
+                type="button"
+                onClick={() => setRateOpen(false)}
+                className="w-10 h-10 rounded-full bg-white/10 text-white font-bold hover:bg-white/20"
+                aria-label="Close"
+              >
+                ✕
+              </button>
+            </div>
+            <div className="overflow-y-auto px-6 py-5 space-y-8">
+              {rateBrands.map((brand, i) => (
+                <div key={`${brand.name}-${i}`}>
+                  <h3 className="text-lg font-extrabold text-fasty-yellow mb-3">
+                    {brand.name || `Brand ${i + 1}`}
+                  </h3>
+                  <div className="overflow-x-auto rounded-xl border border-white/10">
+                    <table className="w-full text-sm">
+                      <thead>
+                        <tr className="text-left text-gray-500 bg-white/5">
+                          <th className="px-4 py-2.5 font-bold">Item</th>
+                          <th className="px-4 py-2.5 font-bold">Price</th>
+                          <th className="px-4 py-2.5 font-bold">Notes</th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {brand.items.map((row, ri) => (
+                          <tr key={`${row.name}-${ri}`} className="border-t border-white/8">
+                            <td className="px-4 py-2.5 text-white font-medium">{row.name}</td>
+                            <td className="px-4 py-2.5 text-fasty-yellow font-extrabold whitespace-nowrap">₹{row.price}</td>
+                            <td className="px-4 py-2.5 text-gray-400">{row.notes || '—'}</td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  </div>
+                </div>
+              ))}
+            </div>
+          </div>
+        </div>
       )}
     </main>
   );

@@ -15,6 +15,9 @@ function slugify(s: string) {
   return s.toLowerCase().trim().replace(/[^a-z0-9]+/g, '-').replace(/(^-|-$)/g, '');
 }
 
+type RateItemForm = { name: string; price: number; notes: string };
+type RateBrandForm = { name: string; items: RateItemForm[] };
+
 const EMPTY = {
   name: '',
   slug: '',
@@ -24,7 +27,7 @@ const EMPTY = {
   sortOrder: 0,
   supportsScheduling: true,
   active: true,
-  rateCard: { title: 'Rate card', items: [] as { name: string; price: number; notes: string }[] },
+  rateCard: { title: 'Rate card', brands: [] as RateBrandForm[] },
 };
 
 export default function AdminCategoriesPage() {
@@ -61,11 +64,18 @@ export default function AdminCategoriesPage() {
       active: c.active,
       rateCard: {
         title: c.rateCard?.title || 'Rate card',
-        items: (c.rateCard?.items || []).map((i) => ({
-          name: i.name || '',
-          price: Number(i.price) || 0,
-          notes: i.notes || '',
-        })),
+        brands:
+          (c.rateCard?.brands?.length
+            ? c.rateCard.brands
+            : [{ name: '', items: [] }]
+          ).map((b) => ({
+            name: b.name || '',
+            items: (b.items || []).map((i) => ({
+              name: i.name || '',
+              price: Number(i.price) || 0,
+              notes: i.notes || '',
+            })),
+          })),
       },
     });
     setEditing(c);
@@ -82,9 +92,15 @@ export default function AdminCategoriesPage() {
         ...form,
         rateCard: {
           title: form.rateCard.title.trim() || 'Rate card',
-          items: form.rateCard.items
-            .filter((i) => i.name.trim())
-            .map((i) => ({ name: i.name.trim(), price: Number(i.price) || 0, notes: i.notes.trim() })),
+          brands: form.rateCard.brands
+            .map((b) => ({
+              name: b.name.trim(),
+              items: b.items
+                .filter((i) => i.name.trim())
+                .map((i) => ({ name: i.name.trim(), price: Number(i.price) || 0, notes: i.notes.trim() })),
+            }))
+            .filter((b) => b.name || b.items.length),
+          items: [],
         },
       };
       if (editing === 'new') {
@@ -139,7 +155,7 @@ export default function AdminCategoriesPage() {
                   <p className="text-xs text-fasty-gray">{c.slug}</p>
                 </div>
                 {!c.active && <span className="chip bg-red-100 text-red-700 text-[10px]">Inactive</span>}
-                {(c.rateCard?.items?.length ?? 0) > 0 && (
+                {(c.rateCard?.brands?.some((b) => (b.items?.length ?? 0) > 0) ?? false) && (
                   <span className="chip bg-yellow-100 text-yellow-800 text-[10px]">Rate card</span>
                 )}
               </div>
@@ -225,8 +241,8 @@ export default function AdminCategoriesPage() {
               <div className="border-t border-black/10 pt-4">
                 <div className="flex items-center justify-between mb-2">
                   <div>
-                    <p className="text-sm font-extrabold">Rate card</p>
-                    <p className="text-xs text-fasty-gray">Shown on every service in this category</p>
+                    <p className="text-sm font-extrabold">Rate card (by brand)</p>
+                    <p className="text-xs text-fasty-gray">One modal on service pages. Add Kent, Pureit, etc. — users scroll to see each table.</p>
                   </div>
                   <button
                     type="button"
@@ -236,74 +252,118 @@ export default function AdminCategoriesPage() {
                         ...form,
                         rateCard: {
                           ...form.rateCard,
-                          items: [...form.rateCard.items, { name: '', price: 0, notes: '' }],
+                          brands: [...form.rateCard.brands, { name: '', items: [{ name: '', price: 0, notes: '' }] }],
                         },
                       })
                     }
                   >
-                    + Add row
+                    + Add brand
                   </button>
                 </div>
-                <label className="block text-sm font-bold mb-1">Rate card title</label>
+                <label className="block text-sm font-bold mb-1">Modal title</label>
                 <input
                   value={form.rateCard.title}
                   onChange={(e) => setForm({ ...form, rateCard: { ...form.rateCard, title: e.target.value } })}
                   className="input-field mb-3"
                   placeholder="RO Rate card"
                 />
-                <div className="space-y-2">
-                  {form.rateCard.items.map((item, idx) => (
-                    <div key={idx} className="grid grid-cols-12 gap-2 items-start">
-                      <input
-                        className="input-field col-span-5"
-                        placeholder="Item"
-                        value={item.name}
-                        onChange={(e) => {
-                          const items = [...form.rateCard.items];
-                          items[idx] = { ...item, name: e.target.value };
-                          setForm({ ...form, rateCard: { ...form.rateCard, items } });
-                        }}
-                      />
-                      <input
-                        type="number"
-                        className="input-field col-span-3"
-                        placeholder="Price"
-                        value={item.price}
-                        onChange={(e) => {
-                          const items = [...form.rateCard.items];
-                          items[idx] = { ...item, price: Number(e.target.value) };
-                          setForm({ ...form, rateCard: { ...form.rateCard, items } });
-                        }}
-                      />
-                      <input
-                        className="input-field col-span-3"
-                        placeholder="Notes"
-                        value={item.notes}
-                        onChange={(e) => {
-                          const items = [...form.rateCard.items];
-                          items[idx] = { ...item, notes: e.target.value };
-                          setForm({ ...form, rateCard: { ...form.rateCard, items } });
-                        }}
-                      />
+                <div className="space-y-4">
+                  {form.rateCard.brands.map((brand, bIdx) => (
+                    <div key={bIdx} className="rounded-xl border border-black/10 p-3 bg-fasty-light/60">
+                      <div className="flex items-center gap-2 mb-2">
+                        <input
+                          className="input-field flex-1"
+                          placeholder="Brand name (e.g. Kent)"
+                          value={brand.name}
+                          onChange={(e) => {
+                            const brands = [...form.rateCard.brands];
+                            brands[bIdx] = { ...brand, name: e.target.value };
+                            setForm({ ...form, rateCard: { ...form.rateCard, brands } });
+                          }}
+                        />
+                        <button
+                          type="button"
+                          className="text-xs font-bold text-red-600 shrink-0"
+                          onClick={() =>
+                            setForm({
+                              ...form,
+                              rateCard: {
+                                ...form.rateCard,
+                                brands: form.rateCard.brands.filter((_, i) => i !== bIdx),
+                              },
+                            })
+                          }
+                        >
+                          Remove brand
+                        </button>
+                      </div>
+                      {brand.items.map((item, idx) => (
+                        <div key={idx} className="grid grid-cols-12 gap-2 items-start mb-2">
+                          <input
+                            className="input-field col-span-5"
+                            placeholder="Item"
+                            value={item.name}
+                            onChange={(e) => {
+                              const brands = [...form.rateCard.brands];
+                              const items = [...brand.items];
+                              items[idx] = { ...item, name: e.target.value };
+                              brands[bIdx] = { ...brand, items };
+                              setForm({ ...form, rateCard: { ...form.rateCard, brands } });
+                            }}
+                          />
+                          <input
+                            type="number"
+                            className="input-field col-span-3"
+                            placeholder="Price"
+                            value={item.price}
+                            onChange={(e) => {
+                              const brands = [...form.rateCard.brands];
+                              const items = [...brand.items];
+                              items[idx] = { ...item, price: Number(e.target.value) };
+                              brands[bIdx] = { ...brand, items };
+                              setForm({ ...form, rateCard: { ...form.rateCard, brands } });
+                            }}
+                          />
+                          <input
+                            className="input-field col-span-3"
+                            placeholder="Notes"
+                            value={item.notes}
+                            onChange={(e) => {
+                              const brands = [...form.rateCard.brands];
+                              const items = [...brand.items];
+                              items[idx] = { ...item, notes: e.target.value };
+                              brands[bIdx] = { ...brand, items };
+                              setForm({ ...form, rateCard: { ...form.rateCard, brands } });
+                            }}
+                          />
+                          <button
+                            type="button"
+                            className="col-span-1 text-xs font-bold text-red-600 pt-2"
+                            onClick={() => {
+                              const brands = [...form.rateCard.brands];
+                              brands[bIdx] = { ...brand, items: brand.items.filter((_, i) => i !== idx) };
+                              setForm({ ...form, rateCard: { ...form.rateCard, brands } });
+                            }}
+                          >
+                            ✕
+                          </button>
+                        </div>
+                      ))}
                       <button
                         type="button"
-                        className="col-span-1 text-xs font-bold text-red-600 pt-2"
-                        onClick={() =>
-                          setForm({
-                            ...form,
-                            rateCard: {
-                              ...form.rateCard,
-                              items: form.rateCard.items.filter((_, i) => i !== idx),
-                            },
-                          })
-                        }
+                        className="text-xs font-bold underline"
+                        onClick={() => {
+                          const brands = [...form.rateCard.brands];
+                          brands[bIdx] = { ...brand, items: [...brand.items, { name: '', price: 0, notes: '' }] };
+                          setForm({ ...form, rateCard: { ...form.rateCard, brands } });
+                        }}
                       >
-                        ✕
+                        + Add row
                       </button>
                     </div>
                   ))}
-                  {form.rateCard.items.length === 0 && (
-                    <p className="text-xs text-fasty-gray">No rows yet. Add items like “Filter change — ₹499”.</p>
+                  {form.rateCard.brands.length === 0 && (
+                    <p className="text-xs text-fasty-gray">No brands yet. Add Kent, Pureit, Aquaguard, etc.</p>
                   )}
                 </div>
               </div>

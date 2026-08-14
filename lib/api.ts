@@ -46,9 +46,14 @@ export interface RateCardItem {
   notes: string;
 }
 
+export interface RateCardBrand {
+  name: string;
+  items: RateCardItem[];
+}
+
 export interface RateCard {
   title: string;
-  items: RateCardItem[];
+  brands: RateCardBrand[];
 }
 
 export interface Service {

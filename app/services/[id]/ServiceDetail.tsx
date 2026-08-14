@@ -204,6 +204,37 @@ export default function ServiceDetail({ slug }: { slug: string }) {
             </div>
           )}
 
+          {(service.rateCard?.items?.length ?? 0) > 0 && (
+            <div className="bg-white/4 border border-fasty-yellow/25 rounded-2xl overflow-hidden">
+              <div className="px-6 py-4 border-b border-white/8 flex items-center justify-between">
+                <div>
+                  <p className="text-xs font-bold text-fasty-yellow uppercase tracking-widest mb-1">Category rate card</p>
+                  <h2 className="text-xl font-extrabold text-white">{service.rateCard?.title || 'Rate card'}</h2>
+                </div>
+              </div>
+              <div className="overflow-x-auto">
+                <table className="w-full text-sm">
+                  <thead>
+                    <tr className="text-left text-gray-500 border-b border-white/8">
+                      <th className="px-6 py-3 font-bold">Item</th>
+                      <th className="px-6 py-3 font-bold">Price</th>
+                      <th className="px-6 py-3 font-bold">Notes</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {service.rateCard!.items.map((row, i) => (
+                      <tr key={`${row.name}-${i}`} className="border-b border-white/5 last:border-0">
+                        <td className="px-6 py-3 text-white font-medium">{row.name}</td>
+                        <td className="px-6 py-3 text-fasty-yellow font-extrabold whitespace-nowrap">₹{row.price}</td>
+                        <td className="px-6 py-3 text-gray-400">{row.notes || '—'}</td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            </div>
+          )}
+
           {/* How we do it — Process steps */}
           <div>
             <div className="mb-8">

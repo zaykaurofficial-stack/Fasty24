@@ -40,6 +40,17 @@ export interface ServiceFaq {
   a: string;
 }
 
+export interface RateCardItem {
+  name: string;
+  price: number;
+  notes: string;
+}
+
+export interface RateCard {
+  title: string;
+  items: RateCardItem[];
+}
+
 export interface Service {
   id: string;
   slug: string;
@@ -59,6 +70,7 @@ export interface Service {
   addOnEligible: boolean;
   serviceKind: 'timed' | 'standard' | 'addon_only';
   active: boolean;
+  rateCard?: RateCard;
   createdAt?: string;
   updatedAt?: string;
 }
@@ -74,6 +86,7 @@ export interface Category {
   supportsScheduling: boolean;
   supportsTimedJob: boolean;
   active: boolean;
+  rateCard?: RateCard;
   services?: Service[];
 }
 

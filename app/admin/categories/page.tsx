@@ -24,6 +24,7 @@ const EMPTY = {
   sortOrder: 0,
   supportsScheduling: true,
   active: true,
+  rateCard: { title: 'Rate card', items: [] as { name: string; price: number; notes: string }[] },
 };
 
 export default function AdminCategoriesPage() {
@@ -58,6 +59,14 @@ export default function AdminCategoriesPage() {
       sortOrder: c.sortOrder ?? 0,
       supportsScheduling: c.supportsScheduling,
       active: c.active,
+      rateCard: {
+        title: c.rateCard?.title || 'Rate card',
+        items: (c.rateCard?.items || []).map((i) => ({
+          name: i.name || '',
+          price: Number(i.price) || 0,
+          notes: i.notes || '',
+        })),
+      },
     });
     setEditing(c);
   }
@@ -69,11 +78,20 @@ export default function AdminCategoriesPage() {
     }
     setSaving(true);
     try {
+      const payload = {
+        ...form,
+        rateCard: {
+          title: form.rateCard.title.trim() || 'Rate card',
+          items: form.rateCard.items
+            .filter((i) => i.name.trim())
+            .map((i) => ({ name: i.name.trim(), price: Number(i.price) || 0, notes: i.notes.trim() })),
+        },
+      };
       if (editing === 'new') {
-        await adminCreateCategory(form);
+        await adminCreateCategory(payload);
         toast('Category created', 'success');
       } else if (editing) {
-        await adminUpdateCategory(editing.slug, form);
+        await adminUpdateCategory(editing.slug, payload);
         toast('Category updated', 'success');
       }
       setEditing(null);
@@ -121,6 +139,9 @@ export default function AdminCategoriesPage() {
                   <p className="text-xs text-fasty-gray">{c.slug}</p>
                 </div>
                 {!c.active && <span className="chip bg-red-100 text-red-700 text-[10px]">Inactive</span>}
+                {(c.rateCard?.items?.length ?? 0) > 0 && (
+                  <span className="chip bg-yellow-100 text-yellow-800 text-[10px]">Rate card</span>
+                )}
               </div>
               <p className="text-sm text-fasty-gray mt-2 line-clamp-2 min-h-[2.5rem]">{c.description}</p>
               <button onClick={() => startEdit(c)} className="text-sm font-bold text-fasty-yellow hover:underline mt-2">
@@ -133,7 +154,10 @@ export default function AdminCategoriesPage() {
 
       {editing !== null && (
         <div className="fixed inset-0 z-[90] bg-black/50 flex items-center justify-center p-4" onClick={() => setEditing(null)}>
-          <div className="bg-white rounded-2xl w-full max-w-md p-6 animate-fade-in" onClick={(e) => e.stopPropagation()}>
+          <div
+            className="bg-white rounded-2xl w-full max-w-lg max-h-[90vh] overflow-y-auto p-6 animate-fade-in"
+            onClick={(e) => e.stopPropagation()}
+          >
             <h2 className="font-extrabold text-lg mb-4">{editing === 'new' ? 'New category' : 'Edit category'}</h2>
             <div className="space-y-3">
               <div className="grid grid-cols-3 gap-3">
@@ -196,6 +220,91 @@ export default function AdminCategoriesPage() {
                     onChange={(e) => setForm({ ...form, sortOrder: Number(e.target.value) })}
                     className="input-field !py-1 w-16"
                   />
+                </div>
+              </div>
+              <div className="border-t border-black/10 pt-4">
+                <div className="flex items-center justify-between mb-2">
+                  <div>
+                    <p className="text-sm font-extrabold">Rate card</p>
+                    <p className="text-xs text-fasty-gray">Shown on every service in this category</p>
+                  </div>
+                  <button
+                    type="button"
+                    className="text-sm font-bold text-fasty-black underline"
+                    onClick={() =>
+                      setForm({
+                        ...form,
+                        rateCard: {
+                          ...form.rateCard,
+                          items: [...form.rateCard.items, { name: '', price: 0, notes: '' }],
+                        },
+                      })
+                    }
+                  >
+                    + Add row
+                  </button>
+                </div>
+                <label className="block text-sm font-bold mb-1">Rate card title</label>
+                <input
+                  value={form.rateCard.title}
+                  onChange={(e) => setForm({ ...form, rateCard: { ...form.rateCard, title: e.target.value } })}
+                  className="input-field mb-3"
+                  placeholder="RO Rate card"
+                />
+                <div className="space-y-2">
+                  {form.rateCard.items.map((item, idx) => (
+                    <div key={idx} className="grid grid-cols-12 gap-2 items-start">
+                      <input
+                        className="input-field col-span-5"
+                        placeholder="Item"
+                        value={item.name}
+                        onChange={(e) => {
+                          const items = [...form.rateCard.items];
+                          items[idx] = { ...item, name: e.target.value };
+                          setForm({ ...form, rateCard: { ...form.rateCard, items } });
+                        }}
+                      />
+                      <input
+                        type="number"
+                        className="input-field col-span-3"
+                        placeholder="Price"
+                        value={item.price}
+                        onChange={(e) => {
+                          const items = [...form.rateCard.items];
+                          items[idx] = { ...item, price: Number(e.target.value) };
+                          setForm({ ...form, rateCard: { ...form.rateCard, items } });
+                        }}
+                      />
+                      <input
+                        className="input-field col-span-3"
+                        placeholder="Notes"
+                        value={item.notes}
+                        onChange={(e) => {
+                          const items = [...form.rateCard.items];
+                          items[idx] = { ...item, notes: e.target.value };
+                          setForm({ ...form, rateCard: { ...form.rateCard, items } });
+                        }}
+                      />
+                      <button
+                        type="button"
+                        className="col-span-1 text-xs font-bold text-red-600 pt-2"
+                        onClick={() =>
+                          setForm({
+                            ...form,
+                            rateCard: {
+                              ...form.rateCard,
+                              items: form.rateCard.items.filter((_, i) => i !== idx),
+                            },
+                          })
+                        }
+                      >
+                        ✕
+                      </button>
+                    </div>
+                  ))}
+                  {form.rateCard.items.length === 0 && (
+                    <p className="text-xs text-fasty-gray">No rows yet. Add items like “Filter change — ₹499”.</p>
+                  )}
                 </div>
               </div>
             </div>

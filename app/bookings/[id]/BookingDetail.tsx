@@ -18,6 +18,7 @@ import {
 import { openRazorpayCheckout, CheckoutCancelledError } from '@/lib/razorpayCheckout';
 import { getSocket, subscribeToBooking, unsubscribeFromBooking } from '@/lib/socket';
 import { toast } from '@/lib/toast';
+import ExpertTrackingMap from '@/components/ExpertTrackingMap';
 
 const STEPS: { key: BookingStatus; label: string; icon: string; desc: string }[] = [
   { key: 'searching', label: 'Finding a professional', icon: '🔍', desc: 'Matching you with the nearest verified expert…' },
@@ -73,15 +74,34 @@ export default function BookingDetail({ id }: { id: string }) {
     const onStatus = () => refresh();
     const onArrived = () => { toast('Your professional has arrived! Share the start OTP.', 'success'); refresh(); };
     const onEnRoute = () => { toast('Your professional is on the way 🚗', 'success'); refresh(); };
-    const onLocation = (payload: { lat: number; lng: number }) => {
-      setBooking((prev) =>
-        prev?.expert ? { ...prev, expert: { ...prev.expert, lastLocation: { ...payload, updatedAt: new Date().toISOString() } } } : prev,
-      );
+    const onLocation = (payload: {
+      lat: number;
+      lng: number;
+      etaMin?: number;
+      distanceKm?: number;
+      route?: { lat: number; lng: number }[];
+    }) => {
+      setBooking((prev) => {
+        if (!prev) return prev;
+        return {
+          ...prev,
+          quotedEtaMin: payload.etaMin ?? prev.quotedEtaMin,
+          distanceKm: payload.distanceKm ?? prev.distanceKm,
+          route: payload.route?.length ? payload.route : prev.route,
+          expert: prev.expert
+            ? {
+                ...prev.expert,
+                lastLocation: { lat: payload.lat, lng: payload.lng, updatedAt: new Date().toISOString() },
+              }
+            : prev.expert,
+        };
+      });
     };
     const onFailed = () => { toast('No professional available nearby. Please try again.', 'error'); refresh(); };
 
     socket.on('booking:status', onStatus);
     socket.on('booking:update', onStatus);
+    socket.on('booking:assigned', onStatus);
     socket.on('booking:arrived', onArrived);
     socket.on('booking:en_route', onEnRoute);
     socket.on('booking:expert_location', onLocation);
@@ -90,6 +110,7 @@ export default function BookingDetail({ id }: { id: string }) {
     return () => {
       socket.off('booking:status', onStatus);
       socket.off('booking:update', onStatus);
+      socket.off('booking:assigned', onStatus);
       socket.off('booking:arrived', onArrived);
       socket.off('booking:en_route', onEnRoute);
       socket.off('booking:expert_location', onLocation);
@@ -286,10 +307,35 @@ export default function BookingDetail({ id }: { id: string }) {
           </div>
         )}
 
+        {(booking.status === 'assigned' || booking.status === 'travelling') &&
+          typeof booking.location?.lat === 'number' &&
+          typeof booking.location?.lng === 'number' && (
+            <ExpertTrackingMap
+              customer={{ lat: booking.location.lat, lng: booking.location.lng }}
+              expert={
+                booking.expert?.lastLocation?.lat != null && booking.expert?.lastLocation?.lng != null
+                  ? { lat: booking.expert.lastLocation.lat, lng: booking.expert.lastLocation.lng }
+                  : null
+              }
+              etaMin={booking.quotedEtaMin}
+              distanceKm={booking.distanceKm}
+              expertName={booking.expert?.name}
+              route={booking.route}
+            />
+          )}
+
         {isCancelled && (
           <div className="bg-red-500/10 border border-red-500/20 rounded-2xl p-6 text-center">
             <p className="text-red-400 font-bold mb-1">Booking Cancelled</p>
-            {booking.cancelReason && <p className="text-sm text-red-400/70">Reason: {booking.cancelReason}</p>}
+            {booking.cancelReason && (
+              <p className="text-sm text-red-400/70">
+                {booking.cancelReason === 'no_expert_nearby'
+                  ? 'No expert is available within 7 km right now. Please try again shortly.'
+                  : booking.cancelReason === 'no_expert_in_sla'
+                    ? 'No expert accepted in time. Please try again shortly.'
+                    : `Reason: ${booking.cancelReason}`}
+              </p>
+            )}
           </div>
         )}
 

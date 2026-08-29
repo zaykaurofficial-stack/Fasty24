@@ -184,6 +184,7 @@ export interface Booking {
   location: { address: string; lat: number; lng: number; zoneSlug?: string };
   quotedEtaMin?: number | null;
   distanceKm?: number | null;
+  route?: { lat: number; lng: number }[];
   pricing: { subtotal: number; tax: number; discount: number; total: number; currency: string };
   payment: { status: string; method?: string; providerRef?: string };
   timeline: {
@@ -730,6 +731,24 @@ export function adminUpdateSiteContent(data: Partial<SiteContent>) {
   });
 }
 
+export function adminPromoAudience() {
+  return apiFetch<{ recipients: number; pushEnabled: boolean }>(
+    '/admin/notifications/audience',
+    { admin: true },
+  );
+}
+
+export function adminSendPromo(data: { title: string; body: string }) {
+  return apiFetch<{ ok: boolean; recipients: number; pushEnabled: boolean }>(
+    '/admin/notifications/promo',
+    {
+      admin: true,
+      method: 'POST',
+      body: JSON.stringify(data),
+    },
+  );
+}
+
 /** Customer-side Razorpay Standard Checkout — create Order, then verify signature. */
 export interface RazorpayOrder {
   keyId: string;
@@ -818,6 +837,7 @@ export const ACTIVE_STATUSES: BookingStatus[] = [
 export function errorMessage(err: unknown): string {
   const map: Record<string, string> = {
     no_expert_in_sla: 'No professional available nearby right now. Please try again shortly.',
+    no_expert_nearby: 'No expert is available within 7 km right now. Please try again shortly.',
     service_not_found: 'This service is not available in your area.',
     missing_params: 'Please complete all required fields.',
     invalid_credentials: 'Incorrect password.',

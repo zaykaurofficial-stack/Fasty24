@@ -258,38 +258,40 @@ export default function BookingDetail({ id }: { id: string }) {
 
         {/* Tracking timeline */}
         {!isCancelled && (
-          <div className="bg-[#141414] border border-white/8 rounded-2xl p-6">
-            <p className="text-xs font-bold text-gray-500 uppercase tracking-widest mb-5">Booking Progress</p>
-            <div className="space-y-0">
+          <div className="bg-[#141414] border border-white/8 rounded-2xl px-5 py-4">
+            <p className="text-[11px] font-bold text-gray-500 uppercase tracking-widest mb-3">Booking Progress</p>
+            <div>
               {STEPS.map((step, i) => {
                 const stepOrder = ORDER[step.key];
                 const done = currentOrder > stepOrder;
                 const active = currentOrder === stepOrder;
+                const last = i === STEPS.length - 1;
                 return (
-                  <div key={step.key} className="flex gap-4">
-                    <div className="flex flex-col items-center">
-                      <div className={`relative w-10 h-10 rounded-full flex items-center justify-center text-sm font-bold transition-all ${
+                  <div key={step.key} className="flex gap-3">
+                    <div className="flex flex-col items-center w-7 shrink-0">
+                      <div className={`relative w-7 h-7 rounded-full flex items-center justify-center text-[11px] font-bold ${
                         done ? 'bg-fasty-yellow text-fasty-black'
                         : active ? 'bg-fasty-yellow/20 border-2 border-fasty-yellow text-fasty-yellow'
                         : 'bg-white/5 border border-white/10 text-gray-600'
                       }`}>
                         {done ? (
-                          <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                          <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={3} d="M5 13l4 4L19 7" />
                           </svg>
-                        ) : step.icon}
-                        {active && <span className="absolute -inset-1 rounded-full border-2 border-fasty-yellow/30 animate-ping" />}
+                        ) : (
+                          <span className="leading-none">{step.icon}</span>
+                        )}
                       </div>
-                      {i < STEPS.length - 1 && (
-                        <div className={`w-0.5 flex-1 min-h-[2rem] mt-1 ${done ? 'bg-fasty-yellow/60' : 'bg-white/8'}`} />
+                      {!last && (
+                        <div className={`w-0.5 flex-1 min-h-[10px] my-0.5 ${done ? 'bg-fasty-yellow/60' : 'bg-white/10'}`} />
                       )}
                     </div>
-                    <div className={`pb-6 ${active ? '' : done ? '' : 'opacity-40'}`}>
-                      <p className={`font-bold text-sm ${active ? 'text-white' : done ? 'text-gray-300' : 'text-gray-600'}`}>
+                    <div className={`${last ? 'pb-0' : active ? 'pb-2' : 'pb-1.5'} ${active ? '' : done ? '' : 'opacity-40'}`}>
+                      <p className={`font-semibold text-sm leading-7 ${active ? 'text-white' : done ? 'text-gray-300' : 'text-gray-600'}`}>
                         {step.label}
                       </p>
                       {active && (
-                        <p className="text-xs text-gray-400 mt-0.5">
+                        <p className="text-xs text-gray-400 -mt-0.5 mb-1">
                           {booking.status === 'travelling' && booking.quotedEtaMin
                             ? `ETA ~${Math.round(booking.quotedEtaMin)} min${booking.distanceKm ? ` · ${booking.distanceKm} km away` : ''}`
                             : booking.status === 'arrived'

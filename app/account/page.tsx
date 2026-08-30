@@ -19,6 +19,7 @@ import {
   errorMessage,
 } from '@/lib/api';
 import { toast } from '@/lib/toast';
+import { resolveJobCoords } from '@/lib/geocode';
 
 const EMPTY_ADDR = { label: 'Home', line1: '', line2: '', city: '', pincode: '' };
 
@@ -73,10 +74,23 @@ export default function AccountPage() {
     setSaving(true);
     try {
       if (editingAddr === 'new') {
-        await addAddress({ ...addrForm, lat: 28.6139, lng: 77.209 });
+        const text = [addrForm.line1, addrForm.line2, addrForm.city, addrForm.pincode]
+          .filter(Boolean)
+          .join(', ');
+        const coords = await resolveJobCoords({ address: text, preferGps: true });
+        await addAddress({ ...addrForm, lat: coords.lat, lng: coords.lng });
         toast('Address added', 'success');
       } else if (editingAddr) {
-        await updateAddress(editingAddr, addrForm);
+        const text = [addrForm.line1, addrForm.line2, addrForm.city, addrForm.pincode]
+          .filter(Boolean)
+          .join(', ');
+        const coords = await resolveJobCoords({
+          address: text,
+          lat: (addrForm as { lat?: number }).lat,
+          lng: (addrForm as { lng?: number }).lng,
+          preferGps: false,
+        });
+        await updateAddress(editingAddr, { ...addrForm, lat: coords.lat, lng: coords.lng });
         toast('Address updated', 'success');
       }
       setEditingAddr(null);

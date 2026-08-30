@@ -19,6 +19,7 @@ import {
 } from '@/lib/api';
 import { openRazorpayCheckout, CheckoutCancelledError } from '@/lib/razorpayCheckout';
 import { toast } from '@/lib/toast';
+import { resolveJobCoords, isPlaceholderCoords } from '@/lib/geocode';
 
 const DEFAULT_LAT = 28.6139;
 const DEFAULT_LNG = 77.209;
@@ -130,9 +131,15 @@ function BookFlow() {
 
     setSubmitting(true);
     try {
+      const coords = await resolveJobCoords({
+        address: addr.address,
+        lat: addr.lat,
+        lng: addr.lng,
+        preferGps: isPlaceholderCoords(addr.lat, addr.lng),
+      });
       const booking = await createBooking({
         serviceIds: [service.slug || service.id],
-        location: addr,
+        location: { address: addr.address, lat: coords.lat, lng: coords.lng },
         bookingType,
         slotId: selectedSlot?.slotId,
         date: bookingType === 'scheduled' ? selectedDate : undefined,
@@ -161,16 +168,12 @@ function BookFlow() {
     }
   }
 
-  function buildAddress(): { address: string; lat: number; lng: number } | null {
-    // Typed form is shown when useNewAddr OR there are no saved addresses.
-    // Prefer that path whenever the form is what the user is filling.
+  function buildAddress(): { address: string; lat?: number; lng?: number } | null {
     const usingTypedForm = useNewAddr || savedAddresses.length === 0;
     if (usingTypedForm) {
       if (!newLine1.trim()) return null;
       return {
         address: [newLine1.trim(), newCity.trim(), newPincode.trim()].filter(Boolean).join(', '),
-        lat: DEFAULT_LAT,
-        lng: DEFAULT_LNG,
       };
     }
 
@@ -181,17 +184,14 @@ function BookFlow() {
     if (a?.line1?.trim()) {
       return {
         address: [a.line1, a.line2, a.city, a.pincode].filter(Boolean).join(', '),
-        lat: a.lat ?? DEFAULT_LAT,
-        lng: a.lng ?? DEFAULT_LNG,
+        lat: a.lat,
+        lng: a.lng,
       };
     }
 
-    // Last resort: user typed into the form even while a saved card looked selected
     if (newLine1.trim()) {
       return {
         address: [newLine1.trim(), newCity.trim(), newPincode.trim()].filter(Boolean).join(', '),
-        lat: DEFAULT_LAT,
-        lng: DEFAULT_LNG,
       };
     }
     return null;

@@ -20,6 +20,7 @@ import {
 import { openRazorpayCheckout, CheckoutCancelledError } from '@/lib/razorpayCheckout';
 import ServiceImage from '@/components/ServiceImage';
 import { toast } from '@/lib/toast';
+import { resolveJobCoords, isPlaceholderCoords } from '@/lib/geocode';
 
 const DEFAULT_LOCATION = { lat: 28.6139, lng: 77.209 };
 
@@ -119,15 +120,25 @@ export default function BookFlow({ slug }: { slug: string }) {
       const text = [activeAddress.line1, activeAddress.line2, activeAddress.city, activeAddress.pincode]
         .filter(Boolean)
         .join(', ');
-      return { address: text, lat: location.lat, lng: location.lng };
+      const coords = await resolveJobCoords({
+        address: text,
+        lat: activeAddress.lat,
+        lng: activeAddress.lng,
+        preferGps: isPlaceholderCoords(activeAddress.lat, activeAddress.lng),
+      });
+      return { address: text, lat: coords.lat, lng: coords.lng };
     }
     if (!newAddr.line1.trim()) {
       toast('Please enter your address', 'error');
       return null;
     }
-    await addAddress({ ...newAddr, lat: coords.lat, lng: coords.lng, label: 'Home' });
     const text = [newAddr.line1, newAddr.city, newAddr.pincode].filter(Boolean).join(', ');
-    return { address: text, lat: coords.lat, lng: coords.lng };
+    const resolved = await resolveJobCoords({
+      address: text,
+      preferGps: true,
+    });
+    await addAddress({ ...newAddr, lat: resolved.lat, lng: resolved.lng, label: 'Home' });
+    return { address: text, lat: resolved.lat, lng: resolved.lng };
   }
 
   async function handleConfirm() {

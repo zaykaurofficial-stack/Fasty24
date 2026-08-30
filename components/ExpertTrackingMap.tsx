@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useRef } from 'react';
+import { useEffect, useRef, useState } from 'react';
 
 type Point = { lat: number; lng: number };
 
@@ -22,8 +22,11 @@ declare global {
         Polyline: new (opts: Record<string, unknown>) => GooglePolyline;
         TrafficLayer: new () => { setMap: (map: GoogleMap | null) => void };
         LatLngBounds: new () => GoogleBounds;
+        event: { addListenerOnce: (map: GoogleMap, name: string, fn: () => void) => void };
       };
     };
+    gm_authFailure?: () => void;
+    __fasty24MapsInit?: () => void;
   }
 }
 
@@ -58,6 +61,10 @@ function loadGoogleMapsJs() {
   mapsLoader = new Promise((resolve, reject) => {
     const existing = document.querySelector<HTMLScriptElement>('script[data-fasty24-maps]');
     if (existing) {
+      if (window.google?.maps) {
+        resolve(window.google.maps);
+        return;
+      }
       existing.addEventListener('load', () => {
         if (window.google?.maps) resolve(window.google.maps);
         else reject(new Error('maps_unavailable'));
@@ -65,19 +72,25 @@ function loadGoogleMapsJs() {
       existing.addEventListener('error', () => reject(new Error('maps_script_failed')));
       return;
     }
-    const script = document.createElement('script');
-    script.dataset.fasty24Maps = '1';
-    script.async = true;
-    script.src = `https://maps.googleapis.com/maps/api/js?key=${encodeURIComponent(key)}&v=quarterly`;
-    script.onload = () => {
+
+    window.__fasty24MapsInit = () => {
       if (window.google?.maps) resolve(window.google.maps);
       else reject(new Error('maps_unavailable'));
     };
+
+    const script = document.createElement('script');
+    script.dataset.fasty24Maps = '1';
+    script.async = true;
+    script.defer = true;
+    script.src = `https://maps.googleapis.com/maps/api/js?key=${encodeURIComponent(key)}&v=weekly&loading=async&callback=__fasty24MapsInit`;
     script.onerror = () => reject(new Error('maps_script_failed'));
     document.head.appendChild(script);
   });
   return mapsLoader;
 }
+
+const AUTH_HELP =
+  'Google Maps JavaScript API rejected this key. In Google Cloud: enable Maps JavaScript API + billing, then use a browser key restricted by HTTP referrers (not IP). Add http://localhost:3001/* and your live website URL.';
 
 export default function ExpertTrackingMap({
   customer,
@@ -87,22 +100,35 @@ export default function ExpertTrackingMap({
   expertName,
   route = [],
 }: Props) {
-  const hostRef = useRef<HTMLDivElement | null>(null);
+  const wrapRef = useRef<HTMLDivElement | null>(null);
   const mapRef = useRef<GoogleMap | null>(null);
   const customerMarker = useRef<GoogleMarker | null>(null);
   const expertMarker = useRef<GoogleMarker | null>(null);
   const lineRef = useRef<GooglePolyline | null>(null);
   const didFit = useRef(false);
   const key = mapsKey();
+  const [authError, setAuthError] = useState<string | null>(null);
 
   useEffect(() => {
-    if (!key || !hostRef.current) return undefined;
+    window.gm_authFailure = () => setAuthError(AUTH_HELP);
+    return () => {
+      if (window.gm_authFailure) delete window.gm_authFailure;
+    };
+  }, []);
+
+  useEffect(() => {
+    const wrap = wrapRef.current;
+    if (!key || !wrap) return undefined;
     let cancelled = false;
+    const host = document.createElement('div');
+    host.style.width = '100%';
+    host.style.height = '100%';
+    wrap.replaceChildren(host);
 
     loadGoogleMapsJs()
       .then((maps) => {
-        if (cancelled || !hostRef.current || mapRef.current) return;
-        const map = new maps.Map(hostRef.current, {
+        if (cancelled || !host.isConnected) return;
+        const map = new maps.Map(host, {
           center: { lat: expert?.lat ?? customer.lat, lng: expert?.lng ?? customer.lng },
           zoom: 14,
           disableDefaultUI: true,
@@ -136,14 +162,24 @@ export default function ExpertTrackingMap({
             strokeWeight: 5,
           });
         }
+        maps.event.addListenerOnce(map, 'tilesloaded', () => {
+          if (!cancelled) setAuthError(null);
+        });
       })
       .catch((err) => {
         console.warn('[google-maps]', err?.message || err);
+        if (!cancelled) setAuthError(AUTH_HELP);
       });
 
     return () => {
       cancelled = true;
+      mapRef.current = null;
+      customerMarker.current = null;
+      expertMarker.current = null;
+      lineRef.current = null;
+      wrap.replaceChildren();
     };
+    // Map lives on a DOM node React does not reconcile. Live GPS updates go through refs.
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [key]);
 
@@ -190,15 +226,16 @@ export default function ExpertTrackingMap({
 
   return (
     <div className="relative overflow-hidden rounded-2xl border border-white/8 bg-[#141414]">
-      <div ref={hostRef} className="h-64 w-full bg-white/5" />
+      <div ref={wrapRef} className="h-64 w-full bg-white/5" />
       <div className="pointer-events-none absolute left-3 right-3 bottom-3 rounded-xl bg-black/85 px-4 py-3">
         <p className="font-extrabold text-fasty-yellow">{etaLabel}</p>
         {distLabel && <p className="text-xs text-white/80 mt-0.5">{distLabel}</p>}
         {!key && (
-          <p className="text-[11px] text-gray-500 mt-1">
-            Set NEXT_PUBLIC_GOOGLE_MAPS_API_KEY and restart the web app to load Google Maps.
+          <p className="text-[11px] text-gray-400 mt-1">
+            Set NEXT_PUBLIC_GOOGLE_MAPS_API_KEY and restart the web app.
           </p>
         )}
+        {authError && <p className="text-[11px] text-red-300 mt-1 leading-snug">{authError}</p>}
       </div>
     </div>
   );

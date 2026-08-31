@@ -54,8 +54,11 @@ type GoogleBounds = {
 };
 type GoogleOverlay = {
   setMap: (map: GoogleMap | null) => void;
-  getPanes?: () => { overlayMouseTarget: HTMLElement } | null;
-  getProjection?: () => {
+  onAdd?: () => void;
+  draw?: () => void;
+  onRemove?: () => void;
+  getPanes: () => { overlayMouseTarget?: HTMLElement } | null;
+  getProjection: () => {
     fromLatLngToDivPixel: (latLng: unknown) => { x: number; y: number } | null;
   } | null;
 };
@@ -145,33 +148,31 @@ function attachBikeOverlay(
   start: Point,
 ): BikeHandle {
   const el = makeBikeEl();
-  const inner = el.querySelector('[data-bike]') as HTMLElement;
+  const inner = el.querySelector('[data-bike]') as HTMLElement | null;
   let position = start;
 
-  class BikeOverlay extends maps.OverlayView {
-    onAdd() {
-      this.getPanes()?.overlayMouseTarget.appendChild(el);
-    }
-    draw() {
-      const proj = this.getProjection();
-      if (!proj) return;
-      const p = proj.fromLatLngToDivPixel(new maps.LatLng(position.lat, position.lng));
-      if (!p) return;
-      el.style.left = `${p.x}px`;
-      el.style.top = `${p.y}px`;
-    }
-    onRemove() {
-      el.remove();
-    }
-  }
-
-  const overlay = new BikeOverlay();
+  const overlay = new maps.OverlayView();
+  overlay.onAdd = () => {
+    const target = overlay.getPanes()?.overlayMouseTarget;
+    if (target) target.appendChild(el);
+  };
+  overlay.draw = () => {
+    const proj = overlay.getProjection();
+    if (!proj) return;
+    const p = proj.fromLatLngToDivPixel(new maps.LatLng(position.lat, position.lng));
+    if (!p) return;
+    el.style.left = `${p.x}px`;
+    el.style.top = `${p.y}px`;
+  };
+  overlay.onRemove = () => {
+    el.remove();
+  };
   overlay.setMap(map);
 
   return {
     setPosition: (p) => {
       position = p;
-      overlay.draw();
+      overlay.draw?.();
     },
     setHeading: (deg) => {
       if (inner) inner.style.transform = `rotate(${deg}deg)`;

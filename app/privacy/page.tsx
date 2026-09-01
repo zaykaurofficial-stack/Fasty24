@@ -32,7 +32,11 @@ export default function PrivacyPolicyPage() {
             Last updated: {LAST_UPDATED}
           </p>
           <p className="text-gray-400 mt-4 text-base leading-relaxed">
-            This Privacy Policy describes how <strong className="text-white">Fasty-24</strong> (&quot;we&quot;, &quot;us&quot;, or &quot;our&quot;) collects, uses, shares, and protects information when you use our website, mobile applications (customer and expert apps), and related services (collectively, the &quot;Services&quot;).
+            This Privacy Policy describes how <strong className="text-white">Fasty-24</strong> (&quot;we&quot;, &quot;us&quot;, or &quot;our&quot;) collects, uses, shares, and protects information when you use our website and customer mobile application (the &quot;Services&quot;). Service professionals should read the{' '}
+            <Link href="/partners/privacy" className="text-fasty-yellow hover:underline">
+              Partner Privacy Policy
+            </Link>
+            .
           </p>
         </div>
       </section>
@@ -135,7 +139,8 @@ export default function PrivacyPolicyPage() {
 
         <div className="mt-12 pt-8 border-t border-white/10 flex flex-wrap gap-4">
           <Link href="/" className="text-sm font-bold text-fasty-yellow hover:underline">← Back to home</Link>
-          <Link href="/categories" className="text-sm font-bold text-gray-400 hover:text-white transition-colors">Browse services</Link>
+          <Link href="/terms" className="text-sm font-bold text-gray-400 hover:text-white transition-colors">Terms of Service</Link>
+          <Link href="/partners/privacy" className="text-sm font-bold text-gray-400 hover:text-white transition-colors">Partner Privacy</Link>
         </div>
       </div>
     </main>

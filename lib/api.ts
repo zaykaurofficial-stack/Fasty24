@@ -535,9 +535,33 @@ export function adminGetBookings() {
   return apiFetch<Booking[]>('/admin/bookings', { admin: true });
 }
 
-export function adminGetExperts(kycStatus?: string) {
-  const qs = kycStatus ? `?kycStatus=${encodeURIComponent(kycStatus)}` : '';
-  return apiFetch<AdminExpert[]>(`/admin/experts${qs}`, { admin: true });
+export function adminGetExperts(params?: string | { kycStatus?: string; category?: string; serviceId?: string }) {
+  const q =
+    typeof params === 'string' || params == null
+      ? { kycStatus: params || undefined }
+      : params;
+  const qs = new URLSearchParams();
+  if (q.kycStatus) qs.set('kycStatus', q.kycStatus);
+  if (q.category) qs.set('category', q.category);
+  if (q.serviceId) qs.set('serviceId', q.serviceId);
+  const suffix = qs.toString() ? `?${qs.toString()}` : '';
+  return apiFetch<AdminExpert[]>(`/admin/experts${suffix}`, { admin: true });
+}
+
+export interface ExpertCoverage {
+  categories: { slug: string; name: string; expertCount: number; verifiedCount: number }[];
+  services: {
+    id: string;
+    slug: string;
+    name: string;
+    categories: string[];
+    expertCount: number;
+    verifiedCount: number;
+  }[];
+}
+
+export function adminGetExpertCoverage() {
+  return apiFetch<ExpertCoverage>('/admin/experts/coverage', { admin: true });
 }
 
 export function adminGetExpert(id: string) {
@@ -564,10 +588,14 @@ export interface AdminExpert {
   id: string;
   name?: string;
   phone?: string;
+  email?: string;
+  gender?: string;
   status?: string;
   rating?: number;
   completedJobs?: number;
   skills?: string[];
+  enrolledCategories?: string[];
+  excludedServiceIds?: string[];
   specialization?: string;
   kycStatus?: string;
   kycNote?: string;
@@ -731,6 +759,35 @@ export function adminUpdateSiteContent(data: Partial<SiteContent>) {
   });
 }
 
+export interface AppVersionConfig {
+  minVersionCode: number;
+  latestVersion: string;
+  latestVersionCode: number;
+  androidPackage: string;
+  storeUrl: string;
+  forceUpdate: boolean;
+  title: string;
+  message: string;
+}
+
+export interface AppConfig {
+  expert: AppVersionConfig;
+  customer: AppVersionConfig;
+  updatedAt?: string | null;
+}
+
+export function adminGetAppConfig() {
+  return apiFetch<AppConfig>('/admin/app-config', { admin: true });
+}
+
+export function adminUpdateAppConfig(data: Partial<Pick<AppConfig, 'expert' | 'customer'>>) {
+  return apiFetch<AppConfig>('/admin/app-config', {
+    admin: true,
+    method: 'PUT',
+    body: JSON.stringify(data),
+  });
+}
+
 export function adminPromoAudience() {
   return apiFetch<{ recipients: number; pushEnabled: boolean }>(
     '/admin/notifications/audience',
@@ -840,7 +897,10 @@ export function errorMessage(err: unknown): string {
     no_expert_nearby: 'No expert is available within 7 km right now. Please try again shortly.',
     service_not_found: 'This service is not available in your area.',
     missing_params: 'Please complete all required fields.',
-    invalid_credentials: 'Incorrect password.',
+    invalid_gender: 'Select a valid gender.',
+    categories_required: 'Select at least one category so we can send matching jobs.',
+    invalid_categories: 'None of the selected categories are available.',
+    invalid_enrollment: 'Could not save the selected trades. Please try again.',
     cloudinary_not_configured: 'Image uploads are not configured on the server yet.',
     wrong_role: 'You do not have access to this action.',
     invalid_token: 'Your session expired. Please sign in again.',

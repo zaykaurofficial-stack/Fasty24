@@ -119,12 +119,23 @@ export default function AdminExpertDetailPage() {
           <div>
             <h1 className="text-2xl font-extrabold">{expert.name || 'Expert'}</h1>
             <p className="text-fasty-gray">{expert.phone}</p>
+            {expert.email ? <p className="text-fasty-gray">{expert.email}</p> : null}
             <div className="flex flex-wrap gap-2 mt-2">
               <span className="chip capitalize bg-gray-100 text-gray-700">{expert.kycStatus || 'pending'}</span>
               <span className="chip capitalize bg-gray-100 text-gray-700">{expert.status || 'offline'}</span>
-              <span className="chip capitalize bg-gray-100 text-gray-700">
-                {expert.specialization || 'general'}
-              </span>
+              {expert.gender ? (
+                <span className="chip capitalize bg-gray-100 text-gray-700">{expert.gender.replace(/_/g, ' ')}</span>
+              ) : null}
+              {(expert.enrolledCategories?.length
+                ? expert.enrolledCategories
+                : expert.specialization
+                  ? [expert.specialization]
+                  : []
+              ).map((slug) => (
+                <span key={slug} className="chip capitalize bg-fasty-yellow/40 text-fasty-black">
+                  {slug.replace(/-/g, ' ')}
+                </span>
+              ))}
             </div>
             {expert.kycNote ? (
               <p className="text-sm text-red-700 mt-2">Note: {expert.kycNote}</p>
@@ -218,6 +229,27 @@ export default function AdminExpertDetailPage() {
               {expert.kycSubmittedAt ? new Date(expert.kycSubmittedAt).toLocaleString('en-IN') : '—'}
             </p>
           </div>
+          {(expert.enrolledCategories?.length || expert.excludedServiceIds?.length) ? (
+            <div className="pt-4 border-t border-gray-100">
+              <h3 className="font-bold mb-2">Enrolled work</h3>
+              <p className="text-sm text-fasty-gray">
+                Categories:{' '}
+                <span className="font-semibold text-fasty-black">
+                  {(expert.enrolledCategories || []).join(', ') || '—'}
+                </span>
+              </p>
+              {expert.excludedServiceIds?.length ? (
+                <p className="text-sm text-fasty-gray mt-1">
+                  Excluded services:{' '}
+                  <span className="font-semibold text-fasty-black">
+                    {expert.excludedServiceIds.join(', ')}
+                  </span>
+                </p>
+              ) : (
+                <p className="text-sm text-fasty-gray mt-1">No service exclusions — all jobs in these trades.</p>
+              )}
+            </div>
+          ) : null}
         </div>
       </div>
 

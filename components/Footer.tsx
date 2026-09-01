@@ -69,6 +69,21 @@ export default function Footer() {
                 </Link>
               </li>
               <li>
+                <Link href="/terms" className="text-gray-400 hover:text-fasty-yellow text-sm transition-colors duration-200">
+                  Terms of Service
+                </Link>
+              </li>
+              <li>
+                <Link href="/partners/privacy" className="text-gray-400 hover:text-fasty-yellow text-sm transition-colors duration-200">
+                  Partner Privacy
+                </Link>
+              </li>
+              <li>
+                <Link href="/partners/terms" className="text-gray-400 hover:text-fasty-yellow text-sm transition-colors duration-200">
+                  Partner Terms
+                </Link>
+              </li>
+              <li>
                 <Link href="/delete-account" className="text-gray-400 hover:text-fasty-yellow text-sm transition-colors duration-200">
                   Delete Account
                 </Link>
@@ -113,6 +128,12 @@ export default function Footer() {
           <div className="flex flex-wrap items-center gap-4">
             <Link href="/privacy" className="text-gray-500 hover:text-fasty-yellow text-sm transition-colors">
               Privacy Policy
+            </Link>
+            <Link href="/terms" className="text-gray-500 hover:text-fasty-yellow text-sm transition-colors">
+              Terms
+            </Link>
+            <Link href="/partners/terms" className="text-gray-500 hover:text-fasty-yellow text-sm transition-colors">
+              Partner Terms
             </Link>
             <Link href="/delete-account" className="text-gray-500 hover:text-fasty-yellow text-sm transition-colors">
               Delete Account

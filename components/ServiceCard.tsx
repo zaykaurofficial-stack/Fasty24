@@ -1,6 +1,7 @@
 'use client';
 
 import Link from 'next/link';
+import FastImage from '@/components/FastImage';
 
 interface ServiceCardProps {
   id: string;
@@ -35,12 +36,12 @@ export default function ServiceCard({
       {/* Image */}
       <div className="relative h-52 w-full overflow-hidden bg-[#1a1a1a]">
         {imageUrl ? (
-          /* eslint-disable-next-line @next/next/no-img-element */
-          <img
+          <FastImage
             src={imageUrl}
             alt={name}
-            className="w-full h-full object-cover transition-transform duration-700 group-hover:scale-105"
-            loading="lazy"
+            size="card"
+            className="absolute inset-0"
+            imgClassName="transition-transform duration-700 group-hover:scale-105"
           />
         ) : (
           <div className="w-full h-full flex items-center justify-center bg-gradient-to-br from-white/5 to-transparent">

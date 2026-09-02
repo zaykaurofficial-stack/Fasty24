@@ -8,6 +8,7 @@ import Hero from '@/components/Hero';
 import CategoryCard from '@/components/CategoryCard';
 import {
   getCategories,
+  peekCategories,
   getSiteContent,
   getUser,
   Category,
@@ -18,8 +19,8 @@ import { toast } from '@/lib/toast';
 import { withHomepageFallbacks } from '@/lib/content';
 
 function ServicesSection() {
-  const [categories, setCategories] = useState<Category[]>([]);
-  const [loading, setLoading] = useState(true);
+  const [categories, setCategories] = useState<Category[]>(() => peekCategories() ?? []);
+  const [loading, setLoading] = useState(() => !peekCategories()?.length);
 
   useEffect(() => {
     getCategories()
@@ -42,8 +43,8 @@ function ServicesSection() {
 
   return (
     <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-6 mt-12">
-      {categories.slice(0, 6).map((cat) => (
-        <CategoryCard key={cat.id} category={cat} />
+      {categories.slice(0, 6).map((cat, i) => (
+        <CategoryCard key={cat.id} category={cat} priority={i < 3} />
       ))}
     </div>
   );
@@ -197,6 +198,9 @@ export default function HomePage() {
                   <img
                     src={t.avatar || 'https://i.pravatar.cc/150'}
                     alt={t.name}
+                    width={40}
+                    height={40}
+                    decoding="async"
                     className="w-10 h-10 rounded-full border-2 border-white/10 group-hover:border-fasty-yellow transition-colors object-cover"
                   />
                   <div>

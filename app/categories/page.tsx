@@ -3,10 +3,11 @@
 import { useEffect, useState, Suspense } from 'react';
 import { useSearchParams, useRouter } from 'next/navigation';
 import Link from 'next/link';
-import { getCategories, Category, Service, errorMessage } from '@/lib/api';
+import { getCategories, peekCategories, Category, Service, errorMessage } from '@/lib/api';
 import { toast } from '@/lib/toast';
 import { SERVICE_ICONS } from '@/lib/content';
 import CategoryCard from '@/components/CategoryCard';
+import FastImage from '@/components/FastImage';
 
 function ServiceListCard({ service, categoryName }: { service: Service; categoryName: string }) {
   const href = `/services/${service.slug || service.id}`;
@@ -18,12 +19,12 @@ function ServiceListCard({ service, categoryName }: { service: Service; category
       {/* Image */}
       <div className="relative h-44 overflow-hidden bg-[#1c1c1c]">
         {service.imageUrl ? (
-          /* eslint-disable-next-line @next/next/no-img-element */
-          <img
+          <FastImage
             src={service.imageUrl}
             alt={service.name}
-            className="w-full h-full object-cover transition-transform duration-700 group-hover:scale-105"
-            loading="lazy"
+            size="card"
+            className="absolute inset-0"
+            imgClassName="transition-transform duration-700 group-hover:scale-105"
           />
         ) : (
           <div className="w-full h-full flex items-center justify-center">
@@ -75,8 +76,8 @@ function CategoriesContent() {
   const searchParams = useSearchParams();
   const router = useRouter();
   const selectedSlug = searchParams.get('cat');
-  const [categories, setCategories] = useState<Category[]>([]);
-  const [loading, setLoading] = useState(true);
+  const [categories, setCategories] = useState<Category[]>(() => peekCategories() ?? []);
+  const [loading, setLoading] = useState(() => !peekCategories()?.length);
 
   useEffect(() => {
     getCategories()
@@ -168,8 +169,8 @@ function CategoriesContent() {
             </div>
           ) : (
             <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-6">
-              {categories.map((cat) => (
-                <CategoryCard key={cat.id} category={cat} />
+              {categories.map((cat, i) => (
+                <CategoryCard key={cat.id} category={cat} priority={i < 3} />
               ))}
             </div>
           )}

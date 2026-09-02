@@ -5,6 +5,7 @@ import { useRouter } from 'next/navigation';
 import Link from 'next/link';
 import {
   getService,
+  peekService,
   getMe,
   getSlots,
   addAddress,
@@ -38,9 +39,9 @@ function nextDays(count: number) {
 
 export default function BookFlow({ slug }: { slug: string }) {
   const router = useRouter();
-  const [service, setService] = useState<Service | null>(null);
+  const [service, setService] = useState<Service | null>(() => peekService(slug));
   const [addresses, setAddresses] = useState<Address[]>([]);
-  const [loading, setLoading] = useState(true);
+  const [loading, setLoading] = useState(() => !peekService(slug));
   const [authChecked, setAuthChecked] = useState(false);
 
   const [bookingType, setBookingType] = useState<'instant' | 'scheduled'>('instant');
@@ -216,6 +217,7 @@ export default function BookFlow({ slug }: { slug: string }) {
               alt={service.name}
               accentSlug={service.categories?.[0]}
               rounded="rounded-2xl"
+              size="card"
               className="w-full h-full"
             />
           </div>

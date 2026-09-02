@@ -2,8 +2,9 @@
 
 import { useEffect, useState } from 'react';
 import Link from 'next/link';
-import { getService, getServices, Service, errorMessage, ApiError } from '@/lib/api';
+import { getService, peekService, getServices, Service, errorMessage, ApiError } from '@/lib/api';
 import ServiceImage from '@/components/ServiceImage';
+import FastImage from '@/components/FastImage';
 
 function Skeleton() {
   return (
@@ -19,21 +20,29 @@ function Skeleton() {
 }
 
 export default function ServiceDetail({ slug }: { slug: string }) {
-  const [service, setService] = useState<Service | null>(null);
+  const cached = peekService(slug);
+  const [service, setService] = useState<Service | null>(cached);
   const [related, setRelated] = useState<Service[]>([]);
-  const [loading, setLoading] = useState(true);
+  const [loading, setLoading] = useState(!cached);
   const [notFound, setNotFound] = useState(false);
-  const [activeImg, setActiveImg] = useState<string | null>(null);
+  const [activeImg, setActiveImg] = useState<string | null>(cached?.imageUrl || cached?.gallery?.[0] || null);
   const [rateOpen, setRateOpen] = useState(false);
 
   useEffect(() => {
     let mounted = true;
-    setLoading(true);
+    const cachedNow = peekService(slug);
+    if (cachedNow) {
+      setService(cachedNow);
+      setActiveImg(cachedNow.imageUrl || cachedNow.gallery?.[0] || null);
+      setLoading(false);
+    } else {
+      setLoading(true);
+    }
     getService(slug)
       .then((svc) => {
         if (!mounted) return;
         setService(svc);
-        setActiveImg(svc.imageUrl || svc.gallery?.[0] || null);
+        setActiveImg((current) => current || svc.imageUrl || svc.gallery?.[0] || null);
         if (svc.categories?.[0]) {
           getServices(svc.categories[0])
             .then((list) => mounted && setRelated(list.filter((s) => s.slug !== svc.slug).slice(0, 3)))
@@ -142,6 +151,8 @@ export default function ServiceDetail({ slug }: { slug: string }) {
                   accentSlug={accent}
                   rounded="rounded-3xl"
                   fit="contain"
+                  size="full"
+                  priority
                   className="w-full h-full"
                   showPlaceholderLabel
                 />
@@ -156,8 +167,12 @@ export default function ServiceDetail({ slug }: { slug: string }) {
                         activeImg === t ? 'border-fasty-yellow' : 'border-white/10 hover:border-white/30'
                       }`}
                     >
-                      {/* eslint-disable-next-line @next/next/no-img-element */}
-                      <img src={t} alt="" className="w-full h-full object-cover" />
+                      <FastImage
+                        src={t}
+                        alt=""
+                        size="thumb"
+                        className="w-full h-full"
+                      />
                     </button>
                   ))}
                 </div>
@@ -248,12 +263,11 @@ export default function ServiceDetail({ slug }: { slug: string }) {
                     {/* Image */}
                     <div className="relative h-52 rounded-2xl overflow-hidden border border-white/10">
                       {step.imageUrl ? (
-                        /* eslint-disable-next-line @next/next/no-img-element */
-                        <img
+                        <FastImage
                           src={step.imageUrl}
                           alt={step.title || `Step ${i + 1}`}
-                          className="w-full h-full object-cover"
-                          loading="lazy"
+                          size="card"
+                          className="w-full h-full"
                         />
                       ) : (
                         <div className="w-full h-full bg-gradient-to-br from-white/5 to-transparent flex flex-col items-center justify-center gap-3 border-dashed">
@@ -295,8 +309,13 @@ export default function ServiceDetail({ slug }: { slug: string }) {
               <div className="grid grid-cols-2 md:grid-cols-3 gap-3">
                 {service.gallery.map((g) => (
                   <div key={g} className="relative h-36 rounded-xl overflow-hidden border border-white/8">
-                    {/* eslint-disable-next-line @next/next/no-img-element */}
-                    <img src={g} alt="" className="w-full h-full object-cover hover:scale-105 transition-transform duration-500" loading="lazy" />
+                    <FastImage
+                      src={g}
+                      alt=""
+                      size="card"
+                      className="w-full h-full"
+                      imgClassName="hover:scale-105 transition-transform duration-500"
+                    />
                   </div>
                 ))}
               </div>
@@ -404,6 +423,7 @@ export default function ServiceDetail({ slug }: { slug: string }) {
                       alt={r.name}
                       accentSlug={r.categories?.[0]}
                       rounded="rounded-xl"
+                      size="thumb"
                       className="w-16 h-16"
                     />
                   </div>

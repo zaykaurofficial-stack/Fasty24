@@ -1,8 +1,15 @@
 import Link from 'next/link';
 import { Category } from '@/lib/api';
 import { accentFor, SERVICE_ICONS } from '@/lib/content';
+import FastImage from '@/components/FastImage';
 
-export default function CategoryCard({ category }: { category: Category }) {
+export default function CategoryCard({
+  category,
+  priority = false,
+}: {
+  category: Category;
+  priority?: boolean;
+}) {
   const services = category.services ?? [];
   const minPrice = services.length ? Math.min(...services.map((s) => s.price)) : null;
   const icon = category.icon || SERVICE_ICONS[category.slug] || '🛠️';
@@ -15,12 +22,13 @@ export default function CategoryCard({ category }: { category: Category }) {
     >
       {/* Full-bleed media */}
       {hasImage ? (
-        /* eslint-disable-next-line @next/next/no-img-element */
-        <img
+        <FastImage
           src={category.imageUrl}
           alt={category.name}
-          className="absolute inset-0 w-full h-full object-cover object-center transition-transform duration-700 ease-out group-hover:scale-110"
-          loading="lazy"
+          size="card"
+          priority={priority}
+          className="absolute inset-0"
+          imgClassName="transition-transform duration-700 ease-out group-hover:scale-110"
         />
       ) : (
         <div className="absolute inset-0 bg-[#161616]">

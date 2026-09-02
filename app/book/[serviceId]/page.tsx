@@ -5,6 +5,7 @@ import { useParams, useRouter } from 'next/navigation';
 import Link from 'next/link';
 import {
   getService,
+  peekService,
   getSlots,
   getMe,
   getUser,
@@ -20,6 +21,7 @@ import {
 import { openRazorpayCheckout, CheckoutCancelledError } from '@/lib/razorpayCheckout';
 import { toast } from '@/lib/toast';
 import { resolveJobCoords, isPlaceholderCoords } from '@/lib/geocode';
+import FastImage from '@/components/FastImage';
 
 const DEFAULT_LAT = 28.6139;
 const DEFAULT_LNG = 77.209;
@@ -42,8 +44,8 @@ function BookFlow() {
   const router = useRouter();
 
   const [step, setStep] = useState<1 | 2 | 3>(1);
-  const [service, setService] = useState<Service | null>(null);
-  const [loadingService, setLoadingService] = useState(true);
+  const [service, setService] = useState<Service | null>(() => peekService(serviceId));
+  const [loadingService, setLoadingService] = useState(() => !peekService(serviceId));
 
   // Scheduling
   const [bookingType, setBookingType] = useState<'instant' | 'scheduled'>('instant');
@@ -253,11 +255,11 @@ function BookFlow() {
             <div className="space-y-6">
               <div className="flex gap-5 bg-fasty-black/50 p-4 rounded-2xl border border-white/5">
                 {service.imageUrl ? (
-                  /* eslint-disable-next-line @next/next/no-img-element */
-                  <img
+                  <FastImage
                     src={service.imageUrl}
                     alt={service.name}
-                    className="w-24 h-24 rounded-xl object-cover shrink-0"
+                    size="thumb"
+                    className="w-24 h-24 rounded-xl shrink-0"
                   />
                 ) : (
                   <div className="w-24 h-24 rounded-xl bg-white/5 flex items-center justify-center shrink-0">

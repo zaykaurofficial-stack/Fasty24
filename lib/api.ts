@@ -1,3 +1,5 @@
+import { catalogImageUrls, prefetchImages } from './image';
+
 function readPublicEnv(nextKey: string, expoKey: string, fallback: string): string {
   const value = process.env[nextKey] ?? process.env[expoKey];
   return value && value.trim() ? value.trim() : fallback;
@@ -377,8 +379,54 @@ export function getMe() {
 /* Catalog                                                            */
 /* ------------------------------------------------------------------ */
 
-export function getCategories() {
-  return apiFetch<Category[]>('/categories');
+const CATALOG_TTL_MS = 5 * 60 * 1000;
+let categoriesCache: { data: Category[]; at: number } | null = null;
+let categoriesInflight: Promise<Category[]> | null = null;
+const serviceCache = new Map<string, { data: Service; at: number }>();
+
+export function peekCategories(): Category[] | null {
+  return categoriesCache?.data ?? null;
+}
+
+export function peekService(idOrSlug: string): Service | null {
+  return serviceCache.get(idOrSlug)?.data ?? null;
+}
+
+function cacheService(svc: Service) {
+  const entry = { data: svc, at: Date.now() };
+  if (svc.id) serviceCache.set(svc.id, entry);
+  if (svc.slug) serviceCache.set(svc.slug, entry);
+}
+
+function seedServicesFromCategories(cats: Category[]) {
+  for (const cat of cats) {
+    for (const svc of cat.services ?? []) cacheService(svc);
+  }
+}
+
+function refreshCategories() {
+  if (categoriesInflight) return categoriesInflight;
+  categoriesInflight = apiFetch<Category[]>('/categories')
+    .then((data) => {
+      categoriesCache = { data, at: Date.now() };
+      seedServicesFromCategories(data);
+      prefetchImages(catalogImageUrls(data), 'card');
+      return data;
+    })
+    .finally(() => {
+      categoriesInflight = null;
+    });
+  return categoriesInflight;
+}
+
+export function getCategories(force = false) {
+  const fresh = Boolean(categoriesCache && Date.now() - categoriesCache.at < CATALOG_TTL_MS);
+  if (!force && fresh) return Promise.resolve(categoriesCache!.data);
+  if (!force && categoriesCache) {
+    void refreshCategories();
+    return Promise.resolve(categoriesCache.data);
+  }
+  return refreshCategories();
 }
 
 export function getSiteContent() {
@@ -387,11 +435,27 @@ export function getSiteContent() {
 
 export function getServices(category?: string) {
   const qs = category ? `?category=${encodeURIComponent(category)}` : '';
-  return apiFetch<Service[]>(`/services${qs}`);
+  return apiFetch<Service[]>(`/services${qs}`).then((list) => {
+    list.forEach(cacheService);
+    return list;
+  });
+}
+
+function refreshService(idOrSlug: string) {
+  return apiFetch<Service>(`/services/${encodeURIComponent(idOrSlug)}`).then((svc) => {
+    cacheService(svc);
+    return svc;
+  });
 }
 
 export function getService(idOrSlug: string) {
-  return apiFetch<Service>(`/services/${encodeURIComponent(idOrSlug)}`);
+  const hit = serviceCache.get(idOrSlug);
+  if (hit && Date.now() - hit.at < CATALOG_TTL_MS) return Promise.resolve(hit.data);
+  if (hit) {
+    void refreshService(idOrSlug);
+    return Promise.resolve(hit.data);
+  }
+  return refreshService(idOrSlug);
 }
 
 /* ------------------------------------------------------------------ */

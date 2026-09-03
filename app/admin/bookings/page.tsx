@@ -10,6 +10,7 @@ const STATUS_FILTERS = [
   { value: 'needs_action', label: 'Needs assignment' },
   { value: 'scheduled', label: 'Scheduled' },
   { value: 'searching', label: 'Searching' },
+  { value: 'high_demand', label: 'High demand' },
   { value: 'assigned', label: 'Assigned' },
   { value: 'in_progress', label: 'In progress' },
   { value: 'completed', label: 'Completed' },
@@ -42,7 +43,7 @@ export default function AdminBookingsPage() {
   }, [status, bookingType]);
 
   const needsCount = useMemo(
-    () => bookings.filter((b) => b.status === 'needs_assignment' || b.status === 'searching').length,
+    () => bookings.filter((b) => ['needs_assignment', 'searching', 'high_demand'].includes(b.status)).length,
     [bookings],
   );
 

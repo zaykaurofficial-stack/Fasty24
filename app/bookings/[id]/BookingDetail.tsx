@@ -10,8 +10,11 @@ import {
   rateBooking,
   createBookingPaymentOrder,
   verifyBookingPayment,
+  getSlots,
+  convertBookingToSchedule,
   Booking,
   BookingStatus,
+  Slot,
   STATUS_LABELS,
   errorMessage,
 } from '@/lib/api';
@@ -31,8 +34,9 @@ const STEPS: { key: BookingStatus; label: string; icon: string; desc: string }[]
 
 const ORDER: Record<BookingStatus, number> = {
   created: 0,
-  scheduled: 0,
+  scheduled: 1,
   searching: 1,
+  high_demand: 1,
   needs_assignment: 1,
   assigned: 2,
   travelling: 3,
@@ -42,7 +46,37 @@ const ORDER: Record<BookingStatus, number> = {
   cancelled: -1,
 };
 
-const CANCELLABLE: BookingStatus[] = ['created', 'scheduled', 'searching', 'needs_assignment', 'assigned'];
+const CANCELLABLE: BookingStatus[] = ['created', 'scheduled', 'searching', 'high_demand', 'needs_assignment', 'assigned'];
+
+function nextDays(n: number) {
+  const days: { value: string; label: string }[] = [];
+  for (let i = 0; i < n; i++) {
+    const d = new Date();
+    d.setDate(d.getDate() + i);
+    const value = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+    days.push({
+      value,
+      label:
+        i === 0
+          ? 'Today'
+          : i === 1
+            ? 'Tomorrow'
+            : d.toLocaleDateString('en-IN', { weekday: 'short', day: 'numeric', month: 'short' }),
+    });
+  }
+  return days;
+}
+
+function formatAssignWhen(iso?: string | null) {
+  if (!iso) return '30 minutes before your slot';
+  return new Date(iso).toLocaleString('en-IN', {
+    weekday: 'short',
+    day: 'numeric',
+    month: 'short',
+    hour: 'numeric',
+    minute: '2-digit',
+  });
+}
 
 export default function BookingDetail({ id }: { id: string }) {
   const router = useRouter();
@@ -52,6 +86,12 @@ export default function BookingDetail({ id }: { id: string }) {
   const [stars, setStars] = useState(0);
   const [comment, setComment] = useState('');
   const [working, setWorking] = useState(false);
+  const [days] = useState(() => nextDays(7));
+  const [slotDate, setSlotDate] = useState(days[0]?.value ?? '');
+  const [slots, setSlots] = useState<Slot[]>([]);
+  const [slotId, setSlotId] = useState('');
+  const [slotsLoading, setSlotsLoading] = useState(false);
+  const [converting, setConverting] = useState(false);
 
   const refresh = useCallback(() => {
     return getBooking(id)
@@ -98,7 +138,7 @@ export default function BookingDetail({ id }: { id: string }) {
         };
       });
     };
-    const onFailed = () => { toast('No professional available nearby. Please try again.', 'error'); refresh(); };
+    const onFailed = () => { refresh(); };
 
     socket.on('booking:status', onStatus);
     socket.on('booking:update', onStatus);
@@ -122,11 +162,40 @@ export default function BookingDetail({ id }: { id: string }) {
 
   // Polling fallback for active bookings
   useEffect(() => {
-    const active: BookingStatus[] = ['searching', 'assigned', 'travelling', 'arrived', 'in_progress'];
+    const active: BookingStatus[] = ['searching', 'high_demand', 'scheduled', 'assigned', 'travelling', 'arrived', 'in_progress'];
     if (!booking || !active.includes(booking.status)) return;
     const t = setInterval(() => refresh(), 5000);
     return () => clearInterval(t);
   }, [booking?.status, refresh]);
+
+  useEffect(() => {
+    if (booking?.status !== 'high_demand') return;
+    const lat = booking.location?.lat;
+    const lng = booking.location?.lng;
+    const serviceId = booking.items?.[0]?.serviceId || booking.items?.[0]?.id;
+    if (lat == null || lng == null || !serviceId) return;
+    let cancelled = false;
+    setSlotsLoading(true);
+    getSlots({ serviceId: String(serviceId), date: slotDate, lat, lng })
+      .then((res) => {
+        if (cancelled) return;
+        const list = res.slots || [];
+        setSlots(list);
+        setSlotId(list.find((s) => s.available)?.slotId || '');
+      })
+      .catch((err) => {
+        if (!cancelled) {
+          setSlots([]);
+          toast(errorMessage(err), 'error');
+        }
+      })
+      .finally(() => {
+        if (!cancelled) setSlotsLoading(false);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [booking?.status, booking?.location?.lat, booking?.location?.lng, booking?.items, slotDate]);
 
   async function handleCancel() {
     if (!booking) return;
@@ -139,6 +208,23 @@ export default function BookingDetail({ id }: { id: string }) {
       toast(errorMessage(err), 'error');
     } finally {
       setWorking(false);
+    }
+  }
+
+  async function handleConvertToSchedule() {
+    if (!booking || !slotId) {
+      toast('Please choose a time slot', 'error');
+      return;
+    }
+    setConverting(true);
+    try {
+      await convertBookingToSchedule(booking.id, slotId, slotDate);
+      toast('Slot booked. A professional will be assigned 30 minutes before.', 'success');
+      refresh();
+    } catch (err) {
+      toast(errorMessage(err), 'error');
+    } finally {
+      setConverting(false);
     }
   }
 
@@ -204,6 +290,18 @@ export default function BookingDetail({ id }: { id: string }) {
   const isCancelled = booking.status === 'cancelled';
   const isCompleted = booking.status === 'completed';
   const title = booking.items.map((it) => it.name).join(', ') || 'Service';
+  const steps =
+    booking.bookingType === 'scheduled'
+      ? [
+          {
+            key: 'scheduled' as BookingStatus,
+            label: 'Slot confirmed',
+            icon: '📅',
+            desc: 'A professional will be assigned 30 minutes before your slot',
+          },
+          ...STEPS.slice(1),
+        ]
+      : STEPS;
 
   return (
     <main className="min-h-screen bg-fasty-black text-white">
@@ -253,7 +351,69 @@ export default function BookingDetail({ id }: { id: string }) {
               <p className="text-xs text-blue-400/80 mt-0.5">
                 {booking.scheduledSlot.date} · {booking.scheduledSlot.label || booking.scheduledSlot.window}
               </p>
+              {!booking.expert ? (
+                <p className="text-xs text-blue-200/90 mt-1">
+                  A professional will be assigned 30 minutes before your slot
+                  {booking.assignmentAt ? ` (around ${formatAssignWhen(booking.assignmentAt)})` : ''}.
+                </p>
+              ) : null}
             </div>
+          </div>
+        )}
+
+        {booking.status === 'high_demand' && (
+          <div className="bg-orange-500/10 border border-orange-500/20 rounded-2xl px-5 py-4 space-y-4">
+            <div>
+              <p className="font-bold text-orange-300 text-sm">High demand in your area</p>
+              <p className="text-xs text-orange-200/80 mt-1">
+                No professional is free right now. Pick a slot — we&apos;ll assign an expert 30 minutes before.
+              </p>
+            </div>
+            <div className="flex gap-2 overflow-x-auto pb-1">
+              {days.map((d) => (
+                <button
+                  key={d.value}
+                  type="button"
+                  onClick={() => setSlotDate(d.value)}
+                  className={`whitespace-nowrap px-3 py-1.5 rounded-lg text-xs font-bold ${
+                    slotDate === d.value ? 'bg-fasty-yellow text-fasty-black' : 'bg-white/5 text-gray-300'
+                  }`}
+                >
+                  {d.label}
+                </button>
+              ))}
+            </div>
+            {slotsLoading ? (
+              <p className="text-xs text-gray-500">Loading slots…</p>
+            ) : (
+              <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
+                {slots.map((s) => (
+                  <button
+                    key={s.slotId}
+                    type="button"
+                    disabled={!s.available}
+                    onClick={() => setSlotId(s.slotId)}
+                    className={`rounded-xl border px-3 py-2 text-xs font-semibold ${
+                      slotId === s.slotId
+                        ? 'border-fasty-yellow bg-fasty-yellow text-fasty-black'
+                        : s.available
+                          ? 'border-white/15 text-gray-200'
+                          : 'border-white/5 text-gray-600 cursor-not-allowed'
+                    }`}
+                  >
+                    {s.label || s.window}
+                  </button>
+                ))}
+              </div>
+            )}
+            <button
+              type="button"
+              disabled={converting || !slotId}
+              onClick={handleConvertToSchedule}
+              className="w-full bg-fasty-yellow text-fasty-black font-extrabold py-3 rounded-xl disabled:opacity-50"
+            >
+              {converting ? 'Booking slot…' : 'Schedule this booking'}
+            </button>
           </div>
         )}
 
@@ -262,11 +422,11 @@ export default function BookingDetail({ id }: { id: string }) {
           <div className="bg-[#141414] border border-white/8 rounded-2xl px-5 py-4">
             <p className="text-[11px] font-bold text-gray-500 uppercase tracking-widest mb-3">Booking Progress</p>
             <div>
-              {STEPS.map((step, i) => {
+              {steps.map((step, i) => {
                 const stepOrder = ORDER[step.key];
                 const done = currentOrder > stepOrder;
                 const active = currentOrder === stepOrder;
-                const last = i === STEPS.length - 1;
+                const last = i === steps.length - 1;
                 return (
                   <div key={step.key} className="flex gap-3">
                     <div className="flex flex-col items-center w-7 shrink-0">
@@ -300,7 +460,11 @@ export default function BookingDetail({ id }: { id: string }) {
                             : booking.status === 'in_progress'
                             ? 'Share the completion OTP below when the work is done'
                             : booking.status === 'needs_assignment'
-                            ? 'No expert accepted yet — our team is assigning a professional'
+                            ? 'Our team is assigning a professional for your slot now'
+                            : booking.status === 'high_demand'
+                            ? 'High demand nearby — pick a slot below'
+                            : booking.status === 'scheduled'
+                            ? 'A professional will be assigned 30 minutes before your slot'
                             : step.desc}
                         </p>
                       )}

@@ -1,10 +1,12 @@
 'use client';
 
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import {
+  CLEAN_MAP_STYLE,
+  ROUTE_BLUE,
   headingDeg,
+  lockRoute,
   remainingRoute,
-  traveledRoute,
   type TrackPoint as Point,
 } from '@/lib/liveTrack';
 
@@ -43,7 +45,6 @@ type GoogleMap = {
 type GoogleMarker = {
   setPosition: (pos: Point) => void;
   setMap: (map: GoogleMap | null) => void;
-  setIcon?: (icon: unknown) => void;
 };
 type GooglePolyline = {
   setPath: (path: Point[]) => void;
@@ -85,10 +86,7 @@ function loadGoogleMapsJs() {
   mapsLoader = new Promise((resolve, reject) => {
     const existing = document.querySelector<HTMLScriptElement>('script[data-fasty24-maps]');
     if (existing) {
-      if (window.google?.maps) {
-        resolve(window.google.maps);
-        return;
-      }
+      if (window.google?.maps) return resolve(window.google.maps);
       existing.addEventListener('load', () => {
         if (window.google?.maps) resolve(window.google.maps);
         else reject(new Error('maps_unavailable'));
@@ -110,22 +108,17 @@ function loadGoogleMapsJs() {
     script.onerror = () => reject(new Error('maps_script_failed'));
     document.head.appendChild(script);
   });
+
   return mapsLoader;
 }
 
-const MAP_STYLES = [
-  { featureType: 'poi', stylers: [{ visibility: 'off' }] },
-  { featureType: 'transit', stylers: [{ visibility: 'off' }] },
-  { featureType: 'administrative', elementType: 'labels', stylers: [{ visibility: 'simplified' }] },
-];
-
-const HOME_ICON =
+const DEST_ICON =
   'data:image/svg+xml;charset=UTF-8,' +
   encodeURIComponent(
     `<svg xmlns="http://www.w3.org/2000/svg" width="44" height="52" viewBox="0 0 44 52">
-      <path d="M22 2c11 0 20 9 20 20 0 14-20 28-20 28S2 36 2 22C2 11 11 2 22 2z" fill="#0D0D0D"/>
-      <path d="M22 6c9 0 16 7.2 16 16 0 10.5-16 22-16 22S6 32.5 6 22C6 13.2 13 6 22 6z" fill="#FFC400"/>
-      <path d="M22 16l9 7.2V32h-5.5v-6h-7v6H13v-8.8L22 16z" fill="#0D0D0D"/>
+      <circle cx="22" cy="22" r="16" fill="#ffffff" stroke="#E5E7EB" stroke-width="2"/>
+      <path d="M22 11c-4.4 0-8 3.6-8 8 0 5.5 8 14 8 14s8-8.5 8-14c0-4.4-3.6-8-8-8z" fill="#16A34A"/>
+      <circle cx="22" cy="19" r="3.2" fill="#ffffff"/>
     </svg>`,
   );
 
@@ -136,7 +129,7 @@ function makeBikeEl() {
   wrap.style.zIndex = '2';
   wrap.style.pointerEvents = 'none';
   wrap.innerHTML = `
-    <div data-bike style="width:52px;height:52px;border-radius:50%;background:#FFC400;border:3px solid #0D0D0D;box-shadow:0 6px 16px rgba(0,0,0,.35);display:flex;align-items:center;justify-content:center;font-size:26px;line-height:1;transition:transform .25s linear">
+    <div data-bike style="width:52px;height:52px;border-radius:50%;background:#16A34A;border:3px solid #ffffff;box-shadow:0 6px 16px rgba(0,0,0,.2);display:flex;align-items:center;justify-content:center;font-size:26px;line-height:1;transition:transform .25s linear">
       🛵
     </div>`;
   return wrap;
@@ -164,9 +157,7 @@ function attachBikeOverlay(
     el.style.left = `${p.x}px`;
     el.style.top = `${p.y}px`;
   };
-  overlay.onRemove = () => {
-    el.remove();
-  };
+  overlay.onRemove = () => el.remove();
   overlay.setMap(map);
 
   return {
@@ -181,13 +172,7 @@ function attachBikeOverlay(
   };
 }
 
-function animateBike(
-  handle: BikeHandle,
-  from: Point,
-  to: Point,
-  heading: number,
-  ms = 900,
-) {
+function animateBike(handle: BikeHandle, from: Point, to: Point, heading: number, ms = 900) {
   const t0 = performance.now();
   handle.setHeading(heading);
   const tick = (now: number) => {
@@ -203,7 +188,7 @@ function animateBike(
 }
 
 const AUTH_HELP =
-  'Google Maps JavaScript API rejected this key. Enable Maps JavaScript API, then use a browser key restricted by HTTP referrers (Websites), not IP addresses.';
+  'Google Maps JavaScript API rejected this key. Enable Maps JavaScript API and use a browser key restricted by HTTP referrers.';
 
 export default function ExpertTrackingMap({
   customer,
@@ -215,7 +200,7 @@ export default function ExpertTrackingMap({
 }: Props) {
   const wrapRef = useRef<HTMLDivElement | null>(null);
   const mapRef = useRef<GoogleMap | null>(null);
-  const homeMarker = useRef<GoogleMarker | null>(null);
+  const destMarker = useRef<GoogleMarker | null>(null);
   const remainLine = useRef<GooglePolyline | null>(null);
   const remainOutline = useRef<GooglePolyline | null>(null);
   const doneLine = useRef<GooglePolyline | null>(null);
@@ -223,8 +208,15 @@ export default function ExpertTrackingMap({
   const lastExpert = useRef<Point | null>(null);
   const headingRef = useRef(0);
   const didFit = useRef(false);
+  const lockedRouteRef = useRef<Point[]>([]);
   const key = mapsKey();
   const [authError, setAuthError] = useState<string | null>(null);
+
+  const lockedRoute = useMemo(() => {
+    const next = lockRoute(lockedRouteRef.current, route, route.length > 1);
+    lockedRouteRef.current = next;
+    return next;
+  }, [route]);
 
   useEffect(() => {
     window.gm_authFailure = () => setAuthError(AUTH_HELP);
@@ -256,42 +248,42 @@ export default function ExpertTrackingMap({
           mapTypeControl: false,
           fullscreenControl: false,
           gestureHandling: 'greedy',
-          styles: MAP_STYLES,
+          styles: CLEAN_MAP_STYLE,
         });
         mapRef.current = map;
 
-        homeMarker.current = new maps.Marker({
+        destMarker.current = new maps.Marker({
           map,
           position: customer,
           title: 'Your location',
           zIndex: 1,
           icon: {
-            url: HOME_ICON,
+            url: DEST_ICON,
             scaledSize: new maps.Size(40, 48),
-            anchor: new maps.Point(20, 46),
+            anchor: new maps.Point(20, 40),
           },
         });
 
         remainOutline.current = new maps.Polyline({
           map,
           path: [],
-          strokeColor: '#0D0D0D',
-          strokeOpacity: 0.35,
+          strokeColor: '#ffffff',
+          strokeOpacity: 1,
           strokeWeight: 10,
         });
         remainLine.current = new maps.Polyline({
           map,
           path: [],
-          strokeColor: '#FFC400',
+          strokeColor: ROUTE_BLUE,
           strokeWeight: 6,
           strokeOpacity: 1,
         });
         doneLine.current = new maps.Polyline({
           map,
           path: [],
-          strokeColor: '#9CA3AF',
-          strokeWeight: 4,
-          strokeOpacity: 0.7,
+          strokeColor: ROUTE_BLUE,
+          strokeWeight: 6,
+          strokeOpacity: 0.18,
         });
 
         if (expert) {
@@ -313,17 +305,16 @@ export default function ExpertTrackingMap({
       bikeRef.current?.remove();
       bikeRef.current = null;
       mapRef.current = null;
-      homeMarker.current = null;
+      destMarker.current = null;
       remainLine.current = null;
       remainOutline.current = null;
       doneLine.current = null;
       wrap.replaceChildren();
     };
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [key]);
+  }, [customer.lat, customer.lng, expert?.lat, expert?.lng, key]);
 
   useEffect(() => {
-    homeMarker.current?.setPosition(customer);
+    destMarker.current?.setPosition(customer);
     const maps = window.google?.maps;
     const map = mapRef.current;
     if (!maps || !map) return;
@@ -342,8 +333,9 @@ export default function ExpertTrackingMap({
         }
       }
 
-      const remain = remainingRoute(route, expert, customer);
-      const done = traveledRoute(route, expert);
+      const remain = remainingRoute(lockedRoute, expert, customer);
+      const done =
+        lockedRoute.length > remain.length ? lockedRoute.slice(0, lockedRoute.length - remain.length + 1) : [];
       remainOutline.current?.setPath(remain);
       remainLine.current?.setPath(remain);
       doneLine.current?.setPath(done);
@@ -351,37 +343,37 @@ export default function ExpertTrackingMap({
 
     if (!didFit.current && expert) {
       const bounds = new maps.LatLngBounds();
-      const remain = remainingRoute(route, expert, customer);
+      const remain = remainingRoute(lockedRoute, expert, customer);
       remain.forEach((p) => bounds.extend(p));
       bounds.extend(customer);
       bounds.extend(expert);
-      map.fitBounds(bounds, { top: 48, right: 48, bottom: 88, left: 48 });
+      map.fitBounds(bounds, { top: 64, right: 48, bottom: 48, left: 48 });
       didFit.current = true;
     }
-  }, [customer, expert, expertName, route]);
+  }, [customer, expert, lockedRoute]);
 
   const etaLabel =
-    etaMin != null ? `Arriving in ~${Math.max(1, Math.round(etaMin))} min` : 'Expert on the way';
+    etaMin != null
+      ? `Arriving in ${Math.max(1, Math.round(etaMin))} minute${Math.round(etaMin) === 1 ? '' : 's'}`
+      : 'Expert on the way';
   const distLabel = distanceKm != null ? `${distanceKm.toFixed(1)} km away` : null;
 
   return (
-    <div className="relative overflow-hidden rounded-2xl border border-white/8 bg-[#141414]">
-      <div ref={wrapRef} className="h-80 w-full bg-white/5 sm:h-96" />
-      <div className="pointer-events-none absolute left-3 right-3 bottom-3 rounded-2xl bg-black/90 px-4 py-3 flex items-center gap-3">
-        <div className="w-11 h-11 rounded-full bg-fasty-yellow text-fasty-black flex items-center justify-center text-xl shrink-0">
+    <div className="relative overflow-hidden rounded-2xl border border-black/5 bg-white shadow-sm">
+      <div className="bg-green-600 px-4 py-3 text-white">
+        <p className="font-extrabold leading-tight">{etaLabel}</p>
+        <p className="text-xs text-white/90 mt-0.5 truncate">
+          {expertName ? `${expertName} is on the way` : 'Your expert is on the way'}
+          {distLabel ? ` · ${distLabel}` : ''}
+        </p>
+      </div>
+      <div ref={wrapRef} className="h-80 w-full bg-[#eef2f5] sm:h-96" />
+      <div className="pointer-events-none absolute left-3 top-16 rounded-full bg-white/95 px-3 py-2 flex items-center gap-2 shadow-sm">
+        <div className="w-9 h-9 rounded-full bg-green-600 text-white flex items-center justify-center text-lg shrink-0">
           🛵
         </div>
-        <div className="min-w-0">
-          <p className="font-extrabold text-fasty-yellow leading-tight">{etaLabel}</p>
-          <p className="text-xs text-white/80 mt-0.5 truncate">
-            {expertName ? `${expertName} is on the way` : 'Your expert is on the way'}
-            {distLabel ? ` · ${distLabel}` : ''}
-          </p>
-        </div>
-        {!key && (
-          <p className="text-[11px] text-gray-400">Set NEXT_PUBLIC_GOOGLE_MAPS_API_KEY</p>
-        )}
-        {authError && <p className="text-[11px] text-red-300 leading-snug">{authError}</p>}
+        {!key && <p className="text-[11px] text-gray-500">Set NEXT_PUBLIC_GOOGLE_MAPS_API_KEY</p>}
+        {authError && <p className="text-[11px] text-red-500 leading-snug">{authError}</p>}
       </div>
     </div>
   );

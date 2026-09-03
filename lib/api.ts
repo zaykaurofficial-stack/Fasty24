@@ -150,6 +150,7 @@ export interface Principal {
 
 export interface BookingItem {
   id: string;
+  serviceId?: string;
   name: string;
   skillTag: string;
   durationMin: number;
@@ -170,6 +171,7 @@ export type BookingStatus =
   | 'created'
   | 'scheduled'
   | 'searching'
+  | 'high_demand'
   | 'needs_assignment'
   | 'assigned'
   | 'travelling'
@@ -209,6 +211,7 @@ export interface Booking {
     endCode?: string | null;
   } | null;
   scheduledFor?: string | null;
+  assignmentAt?: string | null;
   scheduledSlot?: {
     slotId: string;
     window: string;
@@ -536,6 +539,13 @@ export function cancelBooking(id: string, reason?: string) {
   return apiFetch<Booking>(`/bookings/${id}/cancel`, {
     method: 'POST',
     body: JSON.stringify({ reason }),
+  });
+}
+
+export function convertBookingToSchedule(id: string, slotId: string, date: string) {
+  return apiFetch<Booking>(`/bookings/${id}/schedule`, {
+    method: 'POST',
+    body: JSON.stringify({ slotId, date }),
   });
 }
 
@@ -1021,6 +1031,7 @@ export const STATUS_LABELS: Record<string, { label: string; color: string }> = {
   created: { label: 'Awaiting payment', color: 'bg-gray-100 text-gray-700' },
   scheduled: { label: 'Scheduled', color: 'bg-blue-100 text-blue-800' },
   searching: { label: 'Finding professional', color: 'bg-yellow-100 text-yellow-800' },
+  high_demand: { label: 'High demand — pick a slot', color: 'bg-orange-100 text-orange-800' },
   needs_assignment: { label: 'Needs assignment', color: 'bg-orange-100 text-orange-800' },
   assigned: { label: 'Professional assigned', color: 'bg-amber-200 text-amber-900' },
   travelling: { label: 'Expert on the way', color: 'bg-yellow-100 text-yellow-900' },
@@ -1032,6 +1043,7 @@ export const STATUS_LABELS: Record<string, { label: string; color: string }> = {
 
 export const ACTIVE_STATUSES: BookingStatus[] = [
   'searching',
+  'high_demand',
   'needs_assignment',
   'assigned',
   'travelling',

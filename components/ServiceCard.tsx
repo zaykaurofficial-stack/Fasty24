@@ -34,21 +34,20 @@ export default function ServiceCard({
   return (
     <Link href={href} className="group relative flex flex-col h-full bg-[#141414] border border-white/8 rounded-3xl overflow-hidden hover:border-fasty-yellow/40 transition-all duration-500 hover:-translate-y-1 hover:shadow-[0_20px_40px_-15px_rgba(255,196,0,0.15)] cursor-pointer">
       {/* Image */}
-      <div className="relative h-52 w-full overflow-hidden bg-[#1a1a1a]">
+      <div className="relative aspect-[4/3] w-full overflow-hidden bg-[#1a1a1a]">
         {imageUrl ? (
           <FastImage
             src={imageUrl}
             alt={name}
-            size="card"
+            size="contain"
+            fit="contain"
             className="absolute inset-0"
-            imgClassName="transition-transform duration-700 group-hover:scale-105"
           />
         ) : (
           <div className="w-full h-full flex items-center justify-center bg-gradient-to-br from-white/5 to-transparent">
             <span className="text-5xl opacity-40">🛠️</span>
           </div>
         )}
-        <div className="absolute inset-0 bg-gradient-to-t from-[#141414] via-[#141414]/30 to-transparent" />
         {price !== undefined && (
           <span className="absolute top-3 left-3 bg-fasty-yellow text-fasty-black text-xs font-extrabold px-3 py-1.5 rounded-full shadow-[0_0_15px_rgba(255,196,0,0.4)]">
             From ₹{price}

@@ -1,9 +1,10 @@
-export type ImageSize = 'blur' | 'thumb' | 'card' | 'hero' | 'avatar' | 'full';
+export type ImageSize = 'blur' | 'thumb' | 'card' | 'contain' | 'hero' | 'avatar' | 'full';
 
 const WIDTH: Record<ImageSize, number> = {
   blur: 32,
   thumb: 200,
   card: 720,
+  contain: 900,
   hero: 1280,
   avatar: 96,
   full: 1400,
@@ -13,6 +14,7 @@ const CLOUDINARY: Record<ImageSize, string> = {
   blur: 'f_auto,q_auto:low,w_32,e_blur:400,c_limit',
   thumb: 'f_auto,q_auto,w_200,c_fill,g_auto',
   card: 'f_auto,q_auto,w_720,c_fill,g_auto',
+  contain: 'f_auto,q_auto,w_900,c_limit',
   hero: 'f_auto,q_auto,w_1280,c_fill,g_auto',
   avatar: 'f_auto,q_auto,w_96,h_96,c_fill,g_face',
   full: 'f_auto,q_auto,w_1400,c_limit',
@@ -47,7 +49,7 @@ function withUnsplash(url: string, size: ImageSize): string {
     u.searchParams.set('w', String(WIDTH[size]));
     u.searchParams.set('q', size === 'blur' ? '10' : '70');
     u.searchParams.set('auto', 'format');
-    u.searchParams.set('fit', size === 'full' || size === 'blur' ? 'max' : 'crop');
+    u.searchParams.set('fit', size === 'full' || size === 'blur' || size === 'contain' ? 'max' : 'crop');
     return u.toString();
   } catch {
     return url;

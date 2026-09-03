@@ -26,7 +26,8 @@ export default function FastImage({
   fit = 'cover',
   priority = false,
 }: FastImageProps) {
-  const displaySrc = optimizeImageUrl(src, size);
+  const resolvedSize: ImageSize = fit === 'contain' && size === 'card' ? 'contain' : size;
+  const displaySrc = optimizeImageUrl(src, resolvedSize);
   const blurSrc = optimizeImageUrl(src, 'blur');
   const imgRef = useRef<HTMLImageElement>(null);
   const [loaded, setLoaded] = useState(false);

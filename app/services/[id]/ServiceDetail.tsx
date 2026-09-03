@@ -266,7 +266,8 @@ export default function ServiceDetail({ slug }: { slug: string }) {
                         <FastImage
                           src={step.imageUrl}
                           alt={step.title || `Step ${i + 1}`}
-                          size="card"
+                          size="contain"
+                          fit="contain"
                           className="w-full h-full"
                         />
                       ) : (

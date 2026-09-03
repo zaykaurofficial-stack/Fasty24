@@ -33,7 +33,15 @@ function ServicesSection() {
     return (
       <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-6 mt-12">
         {Array.from({ length: 6 }).map((_, i) => (
-          <div key={i} className="aspect-[4/5] rounded-3xl bg-white/5 animate-pulse" />
+          <div key={i} className="rounded-3xl bg-[#141414] border border-white/8 overflow-hidden animate-pulse">
+            <div className="aspect-[4/3] bg-white/5" />
+            <div className="p-5 space-y-3">
+              <div className="h-4 w-2/3 bg-white/10 rounded" />
+              <div className="h-3 w-full bg-white/5 rounded" />
+              <div className="h-3 w-4/5 bg-white/5 rounded" />
+              <div className="h-3 w-1/2 bg-white/5 rounded mt-4" />
+            </div>
+          </div>
         ))}
       </div>
     );

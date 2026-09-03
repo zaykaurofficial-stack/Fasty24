@@ -12,7 +12,7 @@ interface ServiceImageProps {
   /** 'cover' crops to fill, 'contain' shows the full image with a blurred fill behind it. */
   fit?: 'cover' | 'contain';
   priority?: boolean;
-  size?: 'thumb' | 'card' | 'hero' | 'full';
+  size?: 'thumb' | 'card' | 'contain' | 'hero' | 'full';
 }
 
 /**

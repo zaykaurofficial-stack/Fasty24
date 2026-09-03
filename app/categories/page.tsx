@@ -17,21 +17,20 @@ function ServiceListCard({ service, categoryName }: { service: Service; category
       className="group flex flex-col bg-[#141414] border border-white/8 rounded-2xl overflow-hidden hover:border-fasty-yellow/40 transition-all duration-400 hover:-translate-y-1 hover:shadow-[0_16px_32px_-12px_rgba(255,196,0,0.15)]"
     >
       {/* Image */}
-      <div className="relative h-44 overflow-hidden bg-[#1c1c1c]">
+      <div className="relative aspect-[4/3] overflow-hidden bg-[#1c1c1c]">
         {service.imageUrl ? (
           <FastImage
             src={service.imageUrl}
             alt={service.name}
-            size="card"
+            size="contain"
+            fit="contain"
             className="absolute inset-0"
-            imgClassName="transition-transform duration-700 group-hover:scale-105"
           />
         ) : (
           <div className="w-full h-full flex items-center justify-center">
             <span className="text-5xl opacity-25 group-hover:opacity-40 transition-opacity">🛠️</span>
           </div>
         )}
-        <div className="absolute inset-0 bg-gradient-to-t from-[#141414] via-[#141414]/20 to-transparent" />
         <span className="absolute top-3 left-3 bg-fasty-yellow text-fasty-black text-xs font-extrabold px-3 py-1 rounded-full">
           ₹{service.price}
         </span>
@@ -154,7 +153,15 @@ function CategoriesContent() {
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-12">
           <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-6">
             {Array.from({ length: 6 }).map((_, i) => (
-              <div key={i} className="aspect-[4/5] rounded-3xl bg-white/5 animate-pulse" />
+              <div key={i} className="rounded-3xl bg-[#141414] border border-white/8 overflow-hidden animate-pulse">
+                <div className="aspect-[4/3] bg-white/5" />
+                <div className="p-5 space-y-3">
+                  <div className="h-4 w-2/3 bg-white/10 rounded" />
+                  <div className="h-3 w-full bg-white/5 rounded" />
+                  <div className="h-3 w-4/5 bg-white/5 rounded" />
+                  <div className="h-3 w-1/2 bg-white/5 rounded mt-4" />
+                </div>
+              </div>
             ))}
           </div>
         </div>

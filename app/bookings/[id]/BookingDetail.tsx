@@ -33,6 +33,7 @@ const ORDER: Record<BookingStatus, number> = {
   created: 0,
   scheduled: 0,
   searching: 1,
+  needs_assignment: 1,
   assigned: 2,
   travelling: 3,
   arrived: 4,
@@ -41,7 +42,7 @@ const ORDER: Record<BookingStatus, number> = {
   cancelled: -1,
 };
 
-const CANCELLABLE: BookingStatus[] = ['created', 'scheduled', 'searching', 'assigned'];
+const CANCELLABLE: BookingStatus[] = ['created', 'scheduled', 'searching', 'needs_assignment', 'assigned'];
 
 export default function BookingDetail({ id }: { id: string }) {
   const router = useRouter();
@@ -250,7 +251,7 @@ export default function BookingDetail({ id }: { id: string }) {
             <div>
               <p className="font-bold text-blue-300 text-sm">Scheduled Booking</p>
               <p className="text-xs text-blue-400/80 mt-0.5">
-                {booking.scheduledSlot.date} · {booking.scheduledSlot.window}
+                {booking.scheduledSlot.date} · {booking.scheduledSlot.label || booking.scheduledSlot.window}
               </p>
             </div>
           </div>
@@ -298,6 +299,8 @@ export default function BookingDetail({ id }: { id: string }) {
                             ? 'Share the start OTP below with your professional'
                             : booking.status === 'in_progress'
                             ? 'Share the completion OTP below when the work is done'
+                            : booking.status === 'needs_assignment'
+                            ? 'No expert accepted yet — our team is assigning a professional'
                             : step.desc}
                         </p>
                       )}

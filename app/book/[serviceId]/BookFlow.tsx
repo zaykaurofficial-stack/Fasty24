@@ -376,7 +376,7 @@ export default function BookFlow({ slug }: { slug: string }) {
                             : 'border-gray-100 text-gray-300 cursor-not-allowed'
                       }`}
                     >
-                      {s.window.replace('-', ':00 - ')}:00
+                      {s.label || s.window}
                     </button>
                   ))}
                 </div>

@@ -224,6 +224,22 @@ export default function AdminExpertDetailPage() {
             <h3 className="font-bold mb-2">Stats</h3>
             <p className="text-sm text-fasty-gray">Jobs completed: {expert.completedJobs ?? 0}</p>
             <p className="text-sm text-fasty-gray">Rating: {expert.rating?.toFixed?.(1) ?? expert.rating ?? '—'}</p>
+            {expert.offerStats ? (
+              <div className="mt-3 grid grid-cols-3 gap-2 text-center">
+                <div className="rounded-xl bg-green-50 p-2">
+                  <p className="text-lg font-extrabold text-green-700">{expert.offerStats.accepted}</p>
+                  <p className="text-[11px] text-green-800 font-semibold">Accepted</p>
+                </div>
+                <div className="rounded-xl bg-red-50 p-2">
+                  <p className="text-lg font-extrabold text-red-700">{expert.offerStats.declined}</p>
+                  <p className="text-[11px] text-red-800 font-semibold">Declined</p>
+                </div>
+                <div className="rounded-xl bg-orange-50 p-2">
+                  <p className="text-lg font-extrabold text-orange-700">{expert.offerStats.ignored}</p>
+                  <p className="text-[11px] text-orange-800 font-semibold">Ignored</p>
+                </div>
+              </div>
+            ) : null}
             <p className="text-sm text-fasty-gray">
               Submitted:{' '}
               {expert.kycSubmittedAt ? new Date(expert.kycSubmittedAt).toLocaleString('en-IN') : '—'}

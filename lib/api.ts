@@ -170,6 +170,7 @@ export type BookingStatus =
   | 'created'
   | 'scheduled'
   | 'searching'
+  | 'needs_assignment'
   | 'assigned'
   | 'travelling'
   | 'arrived'
@@ -208,7 +209,14 @@ export interface Booking {
     endCode?: string | null;
   } | null;
   scheduledFor?: string | null;
-  scheduledSlot?: { slotId: string; window: string; date: string } | null;
+  scheduledSlot?: {
+    slotId: string;
+    window: string;
+    date: string;
+    label?: string;
+    windowStart?: string;
+    windowEnd?: string;
+  } | null;
   expert?: BookingExpert | null;
   customer?: { id: string; name: string; phone: string } | null;
   createdAt?: string;
@@ -223,6 +231,7 @@ export interface Slot {
   windowEnd: string;
   available: boolean;
   remaining: number;
+  label?: string;
 }
 
 export interface SlotResponse {
@@ -595,8 +604,81 @@ export function adminUpdateCategory(id: string, data: Partial<Category>) {
   });
 }
 
-export function adminGetBookings() {
-  return apiFetch<Booking[]>('/admin/bookings', { admin: true });
+export function adminGetBookings(params?: { status?: string; bookingType?: string }) {
+  const qs = new URLSearchParams();
+  if (params?.status) qs.set('status', params.status);
+  if (params?.bookingType) qs.set('bookingType', params.bookingType);
+  const suffix = qs.toString() ? `?${qs.toString()}` : '';
+  return apiFetch<Booking[]>(`/admin/bookings${suffix}`, { admin: true });
+}
+
+export interface AdminOffer {
+  id: string;
+  status: 'offered' | 'accepted' | 'declined' | 'ignored' | 'cancelled';
+  source: 'broadcast' | 'admin_assign';
+  bookingType?: string;
+  offeredAt?: string;
+  expiresAt?: string | null;
+  respondedAt?: string | null;
+  expert?: { id: string; name: string; phone: string } | null;
+}
+
+export interface AdminAssignCandidate {
+  id: string;
+  name: string;
+  phone: string;
+  status: string;
+  rating: number;
+  completedJobs: number;
+  distanceKm: number | null;
+  busy: boolean;
+  declined: boolean;
+  slotConflict: boolean;
+  recommended: boolean;
+}
+
+export interface AdminBookingDetail extends Booking {
+  declinedCount?: number;
+  offers?: AdminOffer[];
+  candidates?: AdminAssignCandidate[];
+  canAssign?: boolean;
+}
+
+export function adminGetBooking(id: string) {
+  return apiFetch<AdminBookingDetail>(`/admin/bookings/${id}`, { admin: true });
+}
+
+export function adminAssignBooking(bookingId: string, expertId: string) {
+  return apiFetch<Booking>(`/admin/bookings/${bookingId}/assign`, {
+    admin: true,
+    method: 'POST',
+    body: JSON.stringify({ expertId }),
+  });
+}
+
+export interface ExpertOfferStats {
+  accepted: number;
+  declined: number;
+  ignored: number;
+  pending?: number;
+  totalOffers: number;
+  acceptanceRate: number;
+}
+
+export interface ExpertOfferReportRow extends ExpertOfferStats {
+  expertId: string;
+  name: string;
+  phone: string;
+  status: string;
+  kycStatus?: string;
+  completedJobs: number;
+  rating: number;
+}
+
+export function adminGetOfferReport() {
+  return apiFetch<{ experts: ExpertOfferReportRow[]; totals: ExpertOfferStats }>('/admin/experts/report', {
+    admin: true,
+  });
 }
 
 export function adminGetExperts(params?: string | { kycStatus?: string; category?: string; serviceId?: string }) {
@@ -681,6 +763,7 @@ export interface AdminExpert {
 }
 
 export interface AdminExpertDetail extends AdminExpert {
+  offerStats?: ExpertOfferStats;
   arrivalSelfies?: {
     bookingId: string;
     status: string;
@@ -938,6 +1021,7 @@ export const STATUS_LABELS: Record<string, { label: string; color: string }> = {
   created: { label: 'Awaiting payment', color: 'bg-gray-100 text-gray-700' },
   scheduled: { label: 'Scheduled', color: 'bg-blue-100 text-blue-800' },
   searching: { label: 'Finding professional', color: 'bg-yellow-100 text-yellow-800' },
+  needs_assignment: { label: 'Needs assignment', color: 'bg-orange-100 text-orange-800' },
   assigned: { label: 'Professional assigned', color: 'bg-amber-200 text-amber-900' },
   travelling: { label: 'Expert on the way', color: 'bg-yellow-100 text-yellow-900' },
   arrived: { label: 'Expert arrived', color: 'bg-cyan-100 text-cyan-900' },
@@ -948,6 +1032,7 @@ export const STATUS_LABELS: Record<string, { label: string; color: string }> = {
 
 export const ACTIVE_STATUSES: BookingStatus[] = [
   'searching',
+  'needs_assignment',
   'assigned',
   'travelling',
   'arrived',
@@ -959,6 +1044,8 @@ export function errorMessage(err: unknown): string {
   const map: Record<string, string> = {
     no_expert_in_sla: 'No professional available nearby right now. Please try again shortly.',
     no_expert_nearby: 'No expert is available within 7 km right now. Please try again shortly.',
+    expert_busy: 'That expert is already on a live job.',
+    already_assigned: 'This job is already assigned.',
     service_not_found: 'This service is not available in your area.',
     missing_params: 'Please complete all required fields.',
     invalid_gender: 'Select a valid gender.',

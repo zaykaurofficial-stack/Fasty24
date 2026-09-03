@@ -12,10 +12,11 @@ const NAV = [
   { href: '/admin/services', label: 'Services', icon: '🛠️' },
   { href: '/admin/categories', label: 'Categories', icon: '🗂️' },
   { href: '/admin/parts', label: 'Parts', icon: '🔩' },
-  { href: '/admin/bookings', label: 'Bookings', icon: '📦' },
+  { href: '/admin/bookings', label: 'Jobs', icon: '📦' },
   { href: '/admin/estimates', label: 'Estimates', icon: '🧾' },
   { href: '/admin/payments', label: 'Payments', icon: '💳' },
   { href: '/admin/experts', label: 'Experts', icon: '🧑‍🔧' },
+  { href: '/admin/offer-report', label: 'Offer report', icon: '📈' },
   { href: '/admin/notifications', label: 'Push / Promos', icon: '🔔' },
   { href: '/admin/app-updates', label: 'App updates', icon: '📲' },
 ];

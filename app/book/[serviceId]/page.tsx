@@ -367,14 +367,17 @@ function BookFlow() {
                         {slots.map((slot) => (
                           <button
                             key={slot.slotId}
+                            disabled={!slot.available}
                             onClick={() => setSelectedSlot(slot)}
                             className={`px-4 py-3 rounded-xl text-sm font-semibold transition-all text-center ${
                               selectedSlot?.slotId === slot.slotId
                                 ? 'bg-fasty-yellow text-fasty-black shadow-[0_0_12px_rgba(255,196,0,0.3)]'
-                                : 'bg-white/5 border border-white/10 text-gray-300 hover:border-fasty-yellow/40'
+                                : slot.available
+                                  ? 'bg-white/5 border border-white/10 text-gray-300 hover:border-fasty-yellow/40'
+                                  : 'bg-white/3 border border-white/5 text-gray-600 cursor-not-allowed'
                             }`}
                           >
-                            {slot.window}
+                          {slot.label || slot.window}
                             <span className="block text-xs opacity-70 mt-0.5">{slot.remaining} left</span>
                           </button>
                         ))}
@@ -511,7 +514,7 @@ function BookFlow() {
                 </div>
                 {bookingType === 'scheduled' && selectedSlot && (
                   <div className="flex justify-between text-sm text-gray-400">
-                    <span>Slot</span><span>{selectedSlot.window}</span>
+                    <span>Slot</span><span>{selectedSlot.label || selectedSlot.window}</span>
                   </div>
                 )}
                 <div className="flex justify-between text-base font-extrabold text-white pt-3 border-t border-white/10">

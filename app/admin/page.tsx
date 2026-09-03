@@ -14,7 +14,14 @@ import {
 import { toast } from '@/lib/toast';
 
 export default function AdminDashboard() {
-  const [stats, setStats] = useState({ services: 0, categories: 0, bookings: 0, experts: 0, revenue: 0 });
+  const [stats, setStats] = useState({
+    services: 0,
+    categories: 0,
+    bookings: 0,
+    experts: 0,
+    revenue: 0,
+    needsAssignment: 0,
+  });
   const [recent, setRecent] = useState<Booking[]>([]);
   const [loading, setLoading] = useState(true);
 
@@ -24,12 +31,14 @@ export default function AdminDashboard() {
         const revenue = bookings
           .filter((b) => b.payment?.status === 'paid')
           .reduce((sum, b) => sum + (b.pricing?.total ?? 0), 0);
+        const needsAssignment = bookings.filter((b) => b.status === 'needs_assignment').length;
         setStats({
           services: services.length,
           categories: categories.length,
           bookings: bookings.length,
           experts: experts.length,
           revenue,
+          needsAssignment,
         });
         setRecent(bookings.slice(0, 8));
       })
@@ -42,6 +51,7 @@ export default function AdminDashboard() {
     { label: 'Categories', value: stats.categories, href: '/admin/categories', icon: '🗂️' },
     { label: 'Bookings', value: stats.bookings, href: '/admin/bookings', icon: '📦' },
     { label: 'Experts', value: stats.experts, href: '/admin/experts', icon: '🧑‍🔧' },
+    { label: 'Needs assignment', value: stats.needsAssignment, href: '/admin/bookings', icon: '🚨' },
     { label: 'Revenue', value: `₹${stats.revenue}`, href: '/admin/bookings', icon: '💰' },
   ];
 
@@ -50,7 +60,7 @@ export default function AdminDashboard() {
       <h1 className="text-2xl font-extrabold mb-1">Dashboard</h1>
       <p className="text-fasty-gray mb-8">Overview of your Fasty-24 operations</p>
 
-      <div className="grid grid-cols-2 md:grid-cols-5 gap-4 mb-10">
+      <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-4 mb-10">
         {cards.map((c) => (
           <Link key={c.label} href={c.href} className="card hover:-translate-y-0.5">
             <div className="text-2xl mb-2">{c.icon}</div>

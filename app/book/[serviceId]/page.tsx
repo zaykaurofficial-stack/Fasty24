@@ -13,15 +13,18 @@ import {
   createBookingPaymentOrder,
   verifyBookingPayment,
   cancelBooking,
+  getQuote,
   Service,
   Slot,
   Address,
+  BookingPricing,
   errorMessage,
 } from '@/lib/api';
 import { openRazorpayCheckout, CheckoutCancelledError } from '@/lib/razorpayCheckout';
 import { toast } from '@/lib/toast';
 import { resolveJobCoords, isPlaceholderCoords } from '@/lib/geocode';
 import FastImage from '@/components/FastImage';
+import BillSummary from '@/components/BillSummary';
 
 const DEFAULT_LAT = 28.6139;
 const DEFAULT_LNG = 77.209;
@@ -63,8 +66,18 @@ function BookFlow() {
   const [newPincode, setNewPincode] = useState('');
 
   const [submitting, setSubmitting] = useState(false);
+  const [quote, setQuote] = useState<{ pricing: BookingPricing; platformFeeLabel: string } | null>(
+    null,
+  );
 
   const days = getNextDays(5);
+
+  useEffect(() => {
+    if (!serviceId) return;
+    getQuote([serviceId])
+      .then((q) => setQuote({ pricing: q.pricing, platformFeeLabel: q.platformFeeLabel }))
+      .catch(() => setQuote(null));
+  }, [serviceId]);
 
   // Auth guard + fetch service + addresses
   useEffect(() => {
@@ -199,8 +212,14 @@ function BookFlow() {
     return null;
   }
 
-  const totalPrice = service ? Math.round(service.price * 1.18) : 0;
-  const tax = service ? totalPrice - service.price : 0;
+  const pricing: BookingPricing = quote?.pricing ?? {
+    subtotal: service?.price ?? 0,
+    tax: 0,
+    discount: 0,
+    total: service?.price ?? 0,
+    currency: 'INR',
+  };
+  const totalPrice = pricing.total;
 
   if (loadingService) {
     return (
@@ -295,7 +314,9 @@ function BookFlow() {
                 <div>
                   <p className="text-gray-500 text-sm">Service total</p>
                   <p className="text-4xl font-extrabold text-white">₹{service.price}</p>
-                  <p className="text-xs text-gray-500 mt-0.5">+18% GST = ₹{totalPrice}</p>
+                  <p className="text-xs text-gray-500 mt-0.5">
+                    ₹{totalPrice} incl. govt. taxes &amp; charges
+                  </p>
                 </div>
                 <button
                   onClick={() => setStep(2)}
@@ -505,22 +526,18 @@ function BookFlow() {
 
               {/* Summary */}
               <div className="bg-fasty-black/50 rounded-2xl p-5 border border-white/8 space-y-2">
-                <h4 className="font-bold text-white text-sm mb-3">Order Summary</h4>
-                <div className="flex justify-between text-sm text-gray-400">
-                  <span>{service.name}</span><span>₹{service.price}</span>
-                </div>
-                <div className="flex justify-between text-sm text-gray-400">
-                  <span>GST (18%)</span><span>₹{tax}</span>
-                </div>
+                <h4 className="font-bold text-white text-sm mb-3">Bill summary</h4>
+                <BillSummary
+                  pricing={pricing}
+                  itemLabel={service.name}
+                  platformFeeLabel={quote?.platformFeeLabel}
+                  dark
+                />
                 {bookingType === 'scheduled' && selectedSlot && (
-                  <div className="flex justify-between text-sm text-gray-400">
+                  <div className="flex justify-between text-sm text-gray-400 pt-2">
                     <span>Slot</span><span>{selectedSlot.label || selectedSlot.window}</span>
                   </div>
                 )}
-                <div className="flex justify-between text-base font-extrabold text-white pt-3 border-t border-white/10">
-                  <span>Total</span>
-                  <span className="text-fasty-yellow">₹{totalPrice}</span>
-                </div>
               </div>
 
               <button

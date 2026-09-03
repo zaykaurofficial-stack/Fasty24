@@ -6,6 +6,7 @@ import { useEffect, useMemo, useState } from 'react';
 import {
   adminAssignBooking,
   adminGetBooking,
+  getInvoiceLink,
   errorMessage,
   STATUS_LABELS,
   type AdminAssignCandidate,
@@ -36,6 +37,7 @@ export default function AdminBookingDetailPage() {
   const [loading, setLoading] = useState(true);
   const [assigning, setAssigning] = useState<string | null>(null);
   const [expertId, setExpertId] = useState('');
+  const [invoiceLoading, setInvoiceLoading] = useState(false);
 
   async function load() {
     if (!id) return;
@@ -100,6 +102,21 @@ export default function AdminBookingDetailPage() {
 
   const status = STATUS_LABELS[booking.status] ?? { label: booking.status, color: 'bg-gray-100' };
   const slot = booking.scheduledSlot;
+  const canDownloadInvoice =
+    booking.status === 'completed' && booking.payment?.status === 'paid';
+
+  async function handleDownloadInvoice() {
+    if (!id) return;
+    setInvoiceLoading(true);
+    try {
+      const { url } = await getInvoiceLink(id, true);
+      window.open(url, '_blank', 'noopener');
+    } catch (err) {
+      toast(errorMessage(err), 'error');
+    } finally {
+      setInvoiceLoading(false);
+    }
+  }
 
   return (
     <div>
@@ -122,7 +139,19 @@ export default function AdminBookingDetailPage() {
             ) : null}
           </div>
         </div>
-        <p className="text-2xl font-extrabold">₹{booking.pricing?.total ?? 0}</p>
+        <div className="text-right">
+          <p className="text-2xl font-extrabold">₹{booking.pricing?.total ?? 0}</p>
+          {canDownloadInvoice && (
+            <button
+              type="button"
+              onClick={handleDownloadInvoice}
+              disabled={invoiceLoading}
+              className="mt-2 text-sm font-bold text-fasty-gray hover:text-black disabled:opacity-50"
+            >
+              {invoiceLoading ? 'Preparing…' : 'Download invoice ↓'}
+            </button>
+          )}
+        </div>
       </div>
 
       <div className="grid lg:grid-cols-5 gap-6">

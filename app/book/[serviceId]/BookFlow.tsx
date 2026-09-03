@@ -13,13 +13,16 @@ import {
   createBookingPaymentOrder,
   verifyBookingPayment,
   cancelBooking,
+  getQuote,
   Service,
   Address,
   Slot,
+  BookingPricing,
   errorMessage,
 } from '@/lib/api';
 import { openRazorpayCheckout, CheckoutCancelledError } from '@/lib/razorpayCheckout';
 import ServiceImage from '@/components/ServiceImage';
+import BillSummary from '@/components/BillSummary';
 import { toast } from '@/lib/toast';
 import { resolveJobCoords, isPlaceholderCoords } from '@/lib/geocode';
 
@@ -57,6 +60,15 @@ export default function BookFlow({ slug }: { slug: string }) {
 
   const [submitting, setSubmitting] = useState(false);
   const [geo, setGeo] = useState<{ lat: number; lng: number } | null>(null);
+  const [quote, setQuote] = useState<{ pricing: BookingPricing; platformFeeLabel: string } | null>(
+    null,
+  );
+
+  useEffect(() => {
+    getQuote([slug])
+      .then((q) => setQuote({ pricing: q.pricing, platformFeeLabel: q.platformFeeLabel }))
+      .catch(() => setQuote(null));
+  }, [slug]);
 
   useEffect(() => {
     if (typeof navigator === 'undefined' || !navigator.geolocation) return;
@@ -198,8 +210,16 @@ export default function BookFlow({ slug }: { slug: string }) {
 
   if (!service) return null;
 
-  const tax = Math.round(service.price * 0.05);
-  const total = service.price + tax;
+  // Until the quote lands, fall back to the bare service price so the button
+  // never shows a stale or invented total.
+  const pricing: BookingPricing = quote?.pricing ?? {
+    subtotal: service.price,
+    tax: 0,
+    discount: 0,
+    total: service.price,
+    currency: 'INR',
+  };
+  const total = pricing.total;
   const supportsScheduling = service.serviceKind !== 'timed';
 
   return (
@@ -224,19 +244,12 @@ export default function BookFlow({ slug }: { slug: string }) {
           <div className="card !p-5">
             <h1 className="font-extrabold text-xl">{service.name}</h1>
             <p className="text-sm text-fasty-gray mt-1">{service.shortDescription}</p>
-            <div className="mt-4 pt-4 border-t border-gray-100 space-y-2 text-sm">
-              <div className="flex justify-between">
-                <span className="text-fasty-gray">Service</span>
-                <span className="font-semibold">₹{service.price}</span>
-              </div>
-              <div className="flex justify-between">
-                <span className="text-fasty-gray">Taxes (5%)</span>
-                <span className="font-semibold">₹{tax}</span>
-              </div>
-              <div className="flex justify-between text-base pt-2 border-t border-gray-100">
-                <span className="font-bold">Total</span>
-                <span className="font-extrabold">₹{total}</span>
-              </div>
+            <div className="mt-4 pt-4 border-t border-gray-100">
+              <BillSummary
+                pricing={pricing}
+                itemLabel={service.name}
+                platformFeeLabel={quote?.platformFeeLabel}
+              />
             </div>
           </div>
         </div>

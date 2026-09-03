@@ -180,6 +180,20 @@ export type BookingStatus =
   | 'completed'
   | 'cancelled';
 
+export interface BookingPricing {
+  subtotal: number;
+  tax: number;
+  discount: number;
+  total: number;
+  currency: string;
+  platformFee?: number;
+  platformFeeTax?: number;
+  serviceTaxableValue?: number;
+  taxPercent?: number;
+  platformTaxPercent?: number;
+  taxBase?: string;
+}
+
 export interface Booking {
   id: string;
   status: BookingStatus;
@@ -190,7 +204,7 @@ export interface Booking {
   quotedEtaMin?: number | null;
   distanceKm?: number | null;
   route?: { lat: number; lng: number }[];
-  pricing: { subtotal: number; tax: number; discount: number; total: number; currency: string };
+  pricing: BookingPricing;
   payment: { status: string; method?: string; providerRef?: string };
   timeline: {
     createdAt?: string;
@@ -222,6 +236,7 @@ export interface Booking {
   } | null;
   expert?: BookingExpert | null;
   customer?: { id: string; name: string; phone: string } | null;
+  invoiceAvailable?: boolean;
   createdAt?: string;
   updatedAt?: string;
 }
@@ -942,6 +957,90 @@ export function adminUpdateAppConfig(data: Partial<Pick<AppConfig, 'expert' | 'c
     admin: true,
     method: 'PUT',
     body: JSON.stringify(data),
+  });
+}
+
+export interface BillingCompany {
+  legalName: string;
+  tradeName: string;
+  addressLine1: string;
+  addressLine2: string;
+  city: string;
+  state: string;
+  stateCode: string;
+  pincode: string;
+  gstin: string;
+  pan: string;
+  cin: string;
+  email: string;
+  phone: string;
+  logoUrl: string;
+}
+
+export type TaxBase = 'item_plus_fee' | 'fee_only' | 'commission_plus_fee';
+
+export interface BillingTax {
+  serviceGstPercent: number;
+  platformGstPercent: number;
+  taxBase: TaxBase;
+  commissionPercent: number;
+  sacService: string;
+  sacPlatform: string;
+}
+
+export interface PlatformFeeSlab {
+  minAmount: number;
+  maxAmount: number | null;
+  fee: number;
+}
+
+export interface BillingConfig {
+  company: BillingCompany;
+  tax: BillingTax;
+  platformFee: { enabled: boolean; label: string; slabs: PlatformFeeSlab[] };
+  invoice: {
+    servicePrefix: string;
+    platformPrefix: string;
+    financialYear: string;
+    serviceSeq: number;
+    platformSeq: number;
+    termsText: string;
+    signatureUrl: string;
+  };
+  updatedAt?: string | null;
+}
+
+export function adminGetBillingConfig() {
+  return apiFetch<BillingConfig>('/admin/billing-config', { admin: true });
+}
+
+export function adminUpdateBillingConfig(data: Partial<BillingConfig>) {
+  return apiFetch<BillingConfig>('/admin/billing-config', {
+    admin: true,
+    method: 'PUT',
+    body: JSON.stringify(data),
+  });
+}
+
+/**
+ * Mints a short-lived signed URL for the two-page invoice PDF. The link is the
+ * credential, so it can be opened directly in a new tab.
+ */
+export function getInvoiceLink(bookingId: string, admin = false) {
+  return apiFetch<{ url: string; expiresInSec: number; filename: string }>(
+    `/bookings/${bookingId}/invoice/link`,
+    { method: 'POST', admin },
+  );
+}
+
+export function getQuote(serviceIds: string[], discount = 0) {
+  return apiFetch<{
+    items: { id: string; name: string; price: number }[];
+    pricing: BookingPricing;
+    platformFeeLabel: string;
+  }>('/billing/quote', {
+    method: 'POST',
+    body: JSON.stringify({ serviceIds, discount }),
   });
 }
 

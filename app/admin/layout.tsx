@@ -15,6 +15,7 @@ const NAV = [
   { href: '/admin/bookings', label: 'Jobs', icon: '📦' },
   { href: '/admin/estimates', label: 'Estimates', icon: '🧾' },
   { href: '/admin/payments', label: 'Payments', icon: '💳' },
+  { href: '/admin/billing', label: 'Billing & tax', icon: '🧮' },
   { href: '/admin/experts', label: 'Experts', icon: '🧑‍🔧' },
   { href: '/admin/offer-report', label: 'Offer report', icon: '📈' },
   { href: '/admin/notifications', label: 'Push / Promos', icon: '🔔' },

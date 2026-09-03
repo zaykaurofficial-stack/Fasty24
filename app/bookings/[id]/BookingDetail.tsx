@@ -8,6 +8,7 @@ import {
   getUser,
   cancelBooking,
   rateBooking,
+  getInvoiceLink,
   createBookingPaymentOrder,
   verifyBookingPayment,
   getSlots,
@@ -86,6 +87,7 @@ export default function BookingDetail({ id }: { id: string }) {
   const [stars, setStars] = useState(0);
   const [comment, setComment] = useState('');
   const [working, setWorking] = useState(false);
+  const [invoiceLoading, setInvoiceLoading] = useState(false);
   const [days] = useState(() => nextDays(7));
   const [slotDate, setSlotDate] = useState(days[0]?.value ?? '');
   const [slots, setSlots] = useState<Slot[]>([]);
@@ -228,6 +230,19 @@ export default function BookingDetail({ id }: { id: string }) {
     }
   }
 
+  async function handleDownloadInvoice() {
+    if (!booking) return;
+    setInvoiceLoading(true);
+    try {
+      const { url } = await getInvoiceLink(booking.id);
+      window.open(url, '_blank', 'noopener');
+    } catch (err) {
+      toast(errorMessage(err), 'error');
+    } finally {
+      setInvoiceLoading(false);
+    }
+  }
+
   async function handlePayNow() {
     if (!booking) return;
     setWorking(true);
@@ -289,6 +304,8 @@ export default function BookingDetail({ id }: { id: string }) {
   const currentOrder = ORDER[booking.status];
   const isCancelled = booking.status === 'cancelled';
   const isCompleted = booking.status === 'completed';
+  const canDownloadInvoice =
+    booking.invoiceAvailable ?? (isCompleted && booking.payment.status === 'paid');
   const title = booking.items.map((it) => it.name).join(', ') || 'Service';
   const steps =
     booking.bookingType === 'scheduled'
@@ -568,9 +585,17 @@ export default function BookingDetail({ id }: { id: string }) {
                 <span className="font-semibold text-white">₹{it.price}</span>
               </div>
             ))}
+            {(booking.pricing.platformFee ?? 0) > 0 && (
+              <div className="flex justify-between">
+                <span className="text-gray-400">Platform fee</span>
+                <span className="font-semibold text-white">₹{booking.pricing.platformFee}</span>
+              </div>
+            )}
             <div className="flex justify-between">
-              <span className="text-gray-400">Taxes</span>
-              <span className="font-semibold text-white">₹{booking.pricing.tax}</span>
+              <span className="text-gray-400">Est. Govt. taxes</span>
+              <span className="font-semibold text-white">
+                ₹{(booking.pricing.tax ?? 0) + (booking.pricing.platformFeeTax ?? 0)}
+              </span>
             </div>
             <div className="flex justify-between text-base pt-3 border-t border-white/8">
               <span className="font-bold text-white">Total</span>
@@ -586,6 +611,15 @@ export default function BookingDetail({ id }: { id: string }) {
                 className="mt-3 w-full bg-fasty-yellow text-fasty-black font-bold py-3 rounded-xl hover:bg-yellow-400 transition-all disabled:opacity-50"
               >
                 {working ? 'Opening checkout…' : `Pay ₹${booking.pricing.total}`}
+              </button>
+            )}
+            {canDownloadInvoice && (
+              <button
+                onClick={handleDownloadInvoice}
+                disabled={invoiceLoading}
+                className="mt-3 w-full border border-white/15 text-white font-bold py-3 rounded-xl hover:bg-white/5 transition-all disabled:opacity-50"
+              >
+                {invoiceLoading ? 'Preparing invoice…' : 'Download invoice'}
               </button>
             )}
           </div>

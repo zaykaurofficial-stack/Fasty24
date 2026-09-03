@@ -75,15 +75,27 @@ export default function BookingsPage() {
               const formattedDate = b.createdAt
                 ? new Date(b.createdAt).toLocaleDateString('en-IN', { day: 'numeric', month: 'short', year: 'numeric' })
                 : '';
+              const pendingAddons = (b.pendingSuggestions || []).filter((s) => s.status === 'pending').length;
+              const pendingEstimates = b.pendingEstimateCount ?? 0;
+              const needsApproval = pendingAddons + pendingEstimates;
               return (
                 <Link
                   key={b.id}
                   href={`/bookings/${b.id}`}
                   className={`group block bg-[#141414] border rounded-2xl overflow-hidden hover:shadow-[0_8px_32px_-12px_rgba(255,196,0,0.15)] transition-all duration-300 hover:-translate-y-0.5 ${
-                    isActive ? 'border-fasty-yellow/30' : 'border-white/8 hover:border-white/20'
+                    isActive || needsApproval ? 'border-fasty-yellow/30' : 'border-white/8 hover:border-white/20'
                   }`}
                 >
                   <div className="p-5">
+                    {needsApproval > 0 && (
+                      <div className="flex items-center gap-2 mb-4 text-xs font-bold text-fasty-black bg-fasty-yellow rounded-lg px-3 py-2">
+                        {pendingEstimates > 0 && pendingAddons > 0
+                          ? 'Estimate & add-on waiting for your approval'
+                          : pendingEstimates > 0
+                            ? 'Estimate waiting for your approval'
+                            : 'Add-on waiting for your approval'}
+                      </div>
+                    )}
                     {/* Active indicator bar */}
                     {isActive && (
                       <div className="flex items-center gap-2 mb-4 text-xs font-bold text-fasty-yellow bg-fasty-yellow/8 border border-fasty-yellow/20 rounded-lg px-3 py-2">

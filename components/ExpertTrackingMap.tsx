@@ -5,7 +5,7 @@ import {
   CLEAN_MAP_STYLE,
   ROUTE_BLUE,
   headingDeg,
-  lockRoute,
+  isRoadRoute,
   remainingRoute,
   type TrackPoint as Point,
 } from '@/lib/liveTrack';
@@ -213,9 +213,12 @@ export default function ExpertTrackingMap({
   const [authError, setAuthError] = useState<string | null>(null);
 
   const lockedRoute = useMemo(() => {
-    const next = lockRoute(lockedRouteRef.current, route, route.length > 1);
-    lockedRouteRef.current = next;
-    return next;
+    // Parent already applies routeChanged locking — accept new road polylines only.
+    if (isRoadRoute(route)) {
+      lockedRouteRef.current = route;
+      return route;
+    }
+    return lockedRouteRef.current;
   }, [route]);
 
   useEffect(() => {

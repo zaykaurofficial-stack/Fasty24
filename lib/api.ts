@@ -237,8 +237,61 @@ export interface Booking {
   expert?: BookingExpert | null;
   customer?: { id: string; name: string; phone: string } | null;
   invoiceAvailable?: boolean;
+  pendingSuggestions?: AddonSuggestion[];
+  pendingEstimateCount?: number;
   createdAt?: string;
   updatedAt?: string;
+}
+
+export interface AddonSuggestion {
+  id: string;
+  serviceId: string;
+  serviceSlug: string;
+  name: string;
+  price: number;
+  message: string;
+  status: 'pending' | 'accepted' | 'dismissed';
+  suggestedAt?: string | null;
+}
+
+export type EstimateStatus = 'draft' | 'sent' | 'approved' | 'rejected' | 'expired' | 'cancelled';
+
+export interface EstimateLine {
+  id: string;
+  name: string;
+  sku: string;
+  unit: string;
+  kind: 'part' | 'labour';
+  imageUrl: string;
+  qty: number;
+  unitPrice: number;
+  lineTotal: number;
+}
+
+export interface Estimate {
+  id: string;
+  estimateNo: string;
+  bookingId: string | null;
+  status: EstimateStatus;
+  diagnosisNotes: string;
+  diagnosisImages: string[];
+  lines: EstimateLine[];
+  pricing: {
+    subtotal: number;
+    taxPercent: number;
+    tax: number;
+    discount: number;
+    total: number;
+    currency: string;
+  };
+  payment: {
+    status: 'unpaid' | 'pending' | 'paid' | 'failed' | 'refunded';
+    method: 'razorpay' | 'cash' | null;
+    paidAt: string | null;
+    shortUrl: string | null;
+  };
+  settled: boolean;
+  expertName: string | null;
 }
 
 export interface Slot {
@@ -575,6 +628,46 @@ export function rateBooking(id: string, stars: number, comment?: string) {
   return apiFetch<Booking>(`/bookings/${id}/rate`, {
     method: 'POST',
     body: JSON.stringify({ stars, comment }),
+  });
+}
+
+export function getBookingEstimates(bookingId: string) {
+  return apiFetch<Estimate[]>(`/bookings/${bookingId}/estimates`);
+}
+
+export function approveEstimate(id: string) {
+  return apiFetch<Estimate>(`/estimates/${id}/approve`, { method: 'POST' });
+}
+
+export function rejectEstimate(id: string, reason?: string) {
+  return apiFetch<Estimate>(`/estimates/${id}/reject`, {
+    method: 'POST',
+    body: JSON.stringify({ reason }),
+  });
+}
+
+export function acceptAddon(bookingId: string, serviceId: string) {
+  return apiFetch<Booking>(`/bookings/${bookingId}/add-on`, {
+    method: 'POST',
+    body: JSON.stringify({ serviceId }),
+  });
+}
+
+export function dismissAddon(bookingId: string, suggestionId: string) {
+  return apiFetch<Booking>(`/bookings/${bookingId}/addon/dismiss`, {
+    method: 'POST',
+    body: JSON.stringify({ suggestionId }),
+  });
+}
+
+export function createEstimatePaymentOrder(id: string) {
+  return apiFetch<RazorpayOrder>(`/estimates/${id}/payment/order`, { method: 'POST' });
+}
+
+export function verifyEstimatePayment(id: string, payload: RazorpayVerifyPayload) {
+  return apiFetch<Estimate>(`/estimates/${id}/payment/verify`, {
+    method: 'POST',
+    body: JSON.stringify(payload),
   });
 }
 

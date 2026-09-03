@@ -13,8 +13,17 @@ import {
   verifyBookingPayment,
   getSlots,
   convertBookingToSchedule,
+  getBookingEstimates,
+  approveEstimate,
+  rejectEstimate,
+  acceptAddon,
+  dismissAddon,
+  createEstimatePaymentOrder,
+  verifyEstimatePayment,
   Booking,
   BookingStatus,
+  Estimate,
+  AddonSuggestion,
   Slot,
   STATUS_LABELS,
   errorMessage,
@@ -94,6 +103,8 @@ export default function BookingDetail({ id }: { id: string }) {
   const [slotId, setSlotId] = useState('');
   const [slotsLoading, setSlotsLoading] = useState(false);
   const [converting, setConverting] = useState(false);
+  const [estimates, setEstimates] = useState<Estimate[]>([]);
+  const [actingId, setActingId] = useState<string | null>(null);
 
   const refresh = useCallback(() => {
     return getBooking(id)
@@ -101,13 +112,19 @@ export default function BookingDetail({ id }: { id: string }) {
       .catch(() => setNotFound(true));
   }, [id]);
 
+  const refreshEstimates = useCallback(() => {
+    return getBookingEstimates(id)
+      .then(setEstimates)
+      .catch(() => setEstimates([]));
+  }, [id]);
+
   useEffect(() => {
     if (!getUser()) {
       router.push(`/login?redirect=/bookings/${id}`);
       return;
     }
-    refresh().finally(() => setLoading(false));
-  }, [id, refresh, router]);
+    Promise.all([refresh(), refreshEstimates()]).finally(() => setLoading(false));
+  }, [id, refresh, refreshEstimates, router]);
 
   useEffect(() => {
     const socket = getSocket();
@@ -123,14 +140,23 @@ export default function BookingDetail({ id }: { id: string }) {
       etaMin?: number;
       distanceKm?: number;
       route?: { lat: number; lng: number }[];
+      routeChanged?: boolean;
     }) => {
       setBooking((prev) => {
         if (!prev) return prev;
+        const nextRoute =
+          payload.routeChanged && payload.route && payload.route.length >= 3
+            ? payload.route
+            : prev.route && prev.route.length >= 3
+              ? prev.route
+              : payload.route && payload.route.length >= 3
+                ? payload.route
+                : prev.route;
         return {
           ...prev,
           quotedEtaMin: payload.etaMin ?? prev.quotedEtaMin,
           distanceKm: payload.distanceKm ?? prev.distanceKm,
-          route: payload.route?.length ? payload.route : prev.route,
+          route: nextRoute,
           expert: prev.expert
             ? {
                 ...prev.expert,
@@ -141,6 +167,8 @@ export default function BookingDetail({ id }: { id: string }) {
       });
     };
     const onFailed = () => { refresh(); };
+    const onEstimate = () => { toast('Your expert sent a repair estimate', 'success'); refreshEstimates(); };
+    const onAddon = () => { toast('Your expert suggested an add-on', 'success'); refresh(); };
 
     socket.on('booking:status', onStatus);
     socket.on('booking:update', onStatus);
@@ -149,6 +177,11 @@ export default function BookingDetail({ id }: { id: string }) {
     socket.on('booking:en_route', onEnRoute);
     socket.on('booking:expert_location', onLocation);
     socket.on('booking:failed', onFailed);
+    socket.on('estimate:new', onEstimate);
+    socket.on('estimate:paid', onEstimate);
+    socket.on('estimate:updated', onEstimate);
+    socket.on('booking:addon_suggest', onAddon);
+    socket.on('booking:addon', onAddon);
 
     return () => {
       socket.off('booking:status', onStatus);
@@ -158,17 +191,25 @@ export default function BookingDetail({ id }: { id: string }) {
       socket.off('booking:en_route', onEnRoute);
       socket.off('booking:expert_location', onLocation);
       socket.off('booking:failed', onFailed);
+      socket.off('estimate:new', onEstimate);
+      socket.off('estimate:paid', onEstimate);
+      socket.off('estimate:updated', onEstimate);
+      socket.off('booking:addon_suggest', onAddon);
+      socket.off('booking:addon', onAddon);
       unsubscribeFromBooking(id);
     };
-  }, [id, refresh]);
+  }, [id, refresh, refreshEstimates]);
 
   // Polling fallback for active bookings
   useEffect(() => {
     const active: BookingStatus[] = ['searching', 'high_demand', 'scheduled', 'assigned', 'travelling', 'arrived', 'in_progress'];
     if (!booking || !active.includes(booking.status)) return;
-    const t = setInterval(() => refresh(), 5000);
+    const t = setInterval(() => {
+      refresh();
+      refreshEstimates();
+    }, 5000);
     return () => clearInterval(t);
-  }, [booking?.status, refresh]);
+  }, [booking?.status, refresh, refreshEstimates]);
 
   useEffect(() => {
     if (booking?.status !== 'high_demand') return;
@@ -263,6 +304,79 @@ export default function BookingDetail({ id }: { id: string }) {
     }
   }
 
+  async function handleApproveEstimate(estimate: Estimate) {
+    setActingId(estimate.id);
+    try {
+      const updated = await approveEstimate(estimate.id);
+      setEstimates((prev) => prev.map((e) => (e.id === updated.id ? updated : e)));
+      toast('Estimate approved', 'success');
+    } catch (err) {
+      toast(errorMessage(err), 'error');
+    } finally {
+      setActingId(null);
+    }
+  }
+
+  async function handleRejectEstimate(estimate: Estimate) {
+    setActingId(estimate.id);
+    try {
+      const updated = await rejectEstimate(estimate.id);
+      setEstimates((prev) => prev.map((e) => (e.id === updated.id ? updated : e)));
+      toast('Estimate declined', 'info');
+    } catch (err) {
+      toast(errorMessage(err), 'error');
+    } finally {
+      setActingId(null);
+    }
+  }
+
+  async function handlePayEstimate(estimate: Estimate) {
+    setActingId(estimate.id);
+    try {
+      const order = await createEstimatePaymentOrder(estimate.id);
+      const result = await openRazorpayCheckout(order);
+      const updated = await verifyEstimatePayment(estimate.id, result);
+      setEstimates((prev) => prev.map((e) => (e.id === updated.id ? updated : e)));
+      toast('Payment received', 'success');
+    } catch (err) {
+      if (err instanceof CheckoutCancelledError) {
+        toast('Payment cancelled', 'info');
+      } else {
+        toast(errorMessage(err), 'error');
+      }
+    } finally {
+      setActingId(null);
+    }
+  }
+
+  async function handleAcceptAddon(suggestion: AddonSuggestion) {
+    if (!booking) return;
+    setActingId(suggestion.id);
+    try {
+      const updated = await acceptAddon(booking.id, suggestion.serviceSlug || suggestion.serviceId);
+      setBooking(updated);
+      toast(`${suggestion.name} added`, 'success');
+    } catch (err) {
+      toast(errorMessage(err), 'error');
+    } finally {
+      setActingId(null);
+    }
+  }
+
+  async function handleDismissAddon(suggestion: AddonSuggestion) {
+    if (!booking) return;
+    setActingId(suggestion.id);
+    try {
+      const updated = await dismissAddon(booking.id, suggestion.id);
+      setBooking(updated);
+      toast('Add-on declined', 'info');
+    } catch (err) {
+      toast(errorMessage(err), 'error');
+    } finally {
+      setActingId(null);
+    }
+  }
+
   async function handleRate() {
     if (!booking || stars === 0) { toast('Please select a rating', 'error'); return; }
     setWorking(true);
@@ -307,6 +421,10 @@ export default function BookingDetail({ id }: { id: string }) {
   const canDownloadInvoice =
     booking.invoiceAvailable ?? (isCompleted && booking.payment.status === 'paid');
   const title = booking.items.map((it) => it.name).join(', ') || 'Service';
+  const pendingAddons = (booking.pendingSuggestions || []).filter((s) => s.status === 'pending');
+  const actionableEstimates = estimates.filter(
+    (e) => e.status === 'sent' || (e.status === 'approved' && !e.settled),
+  );
   const steps =
     booking.bookingType === 'scheduled'
       ? [
@@ -433,6 +551,115 @@ export default function BookingDetail({ id }: { id: string }) {
             </button>
           </div>
         )}
+
+        {pendingAddons.map((suggestion) => (
+          <div
+            key={suggestion.id || suggestion.serviceSlug}
+            className="bg-fasty-yellow/10 border border-fasty-yellow/40 rounded-2xl p-5 space-y-3"
+          >
+            <div>
+              <p className="text-[11px] font-bold text-fasty-yellow uppercase tracking-widest">Add-on needs approval</p>
+              <h2 className="text-lg font-extrabold text-white mt-1">{suggestion.name}</h2>
+              {suggestion.message ? (
+                <p className="text-sm text-gray-400 mt-1">{suggestion.message}</p>
+              ) : (
+                <p className="text-sm text-gray-400 mt-1">Your expert suggested this extra service.</p>
+              )}
+            </div>
+            <div className="flex items-center justify-between gap-3">
+              <p className="text-2xl font-extrabold text-white">₹{suggestion.price}</p>
+              <div className="flex gap-2">
+                <button
+                  type="button"
+                  disabled={actingId === suggestion.id}
+                  onClick={() => handleDismissAddon(suggestion)}
+                  className="px-4 py-2 rounded-xl text-sm font-bold text-gray-400 hover:text-white disabled:opacity-50"
+                >
+                  Decline
+                </button>
+                <button
+                  type="button"
+                  disabled={actingId === suggestion.id}
+                  onClick={() => handleAcceptAddon(suggestion)}
+                  className="px-4 py-2 rounded-xl text-sm font-extrabold bg-fasty-yellow text-fasty-black disabled:opacity-50"
+                >
+                  {actingId === suggestion.id ? 'Saving…' : 'Approve'}
+                </button>
+              </div>
+            </div>
+          </div>
+        ))}
+
+        {actionableEstimates.map((estimate) => {
+          const awaiting = estimate.status === 'sent';
+          return (
+            <div
+              key={estimate.id}
+              className="bg-fasty-yellow/10 border border-fasty-yellow/40 rounded-2xl p-5 space-y-4"
+            >
+              <div>
+                <p className="text-[11px] font-bold text-fasty-yellow uppercase tracking-widest">
+                  {awaiting ? 'Estimate needs approval' : 'Payment pending'}
+                </p>
+                <h2 className="text-lg font-extrabold text-white mt-1">
+                  {estimate.estimateNo || 'Repair estimate'}
+                </h2>
+                {estimate.diagnosisNotes ? (
+                  <p className="text-sm text-gray-400 mt-1">{estimate.diagnosisNotes}</p>
+                ) : (
+                  <p className="text-sm text-gray-400 mt-1">
+                    {estimate.lines.length} item{estimate.lines.length === 1 ? '' : 's'} to replace
+                  </p>
+                )}
+              </div>
+              <div className="space-y-2">
+                {estimate.lines.map((line) => (
+                  <div key={line.id} className="flex justify-between text-sm">
+                    <span className="text-gray-300">
+                      {line.name} × {line.qty}
+                    </span>
+                    <span className="font-semibold text-white">₹{line.lineTotal}</span>
+                  </div>
+                ))}
+                <div className="flex justify-between text-base pt-2 border-t border-white/10">
+                  <span className="font-bold text-white">Total</span>
+                  <span className="font-extrabold text-fasty-yellow">₹{estimate.pricing.total}</span>
+                </div>
+              </div>
+              <div className="flex gap-2">
+                {awaiting ? (
+                  <>
+                    <button
+                      type="button"
+                      disabled={actingId === estimate.id}
+                      onClick={() => handleRejectEstimate(estimate)}
+                      className="flex-1 px-4 py-3 rounded-xl text-sm font-bold border border-white/15 text-gray-300 disabled:opacity-50"
+                    >
+                      Decline
+                    </button>
+                    <button
+                      type="button"
+                      disabled={actingId === estimate.id}
+                      onClick={() => handleApproveEstimate(estimate)}
+                      className="flex-[1.6] px-4 py-3 rounded-xl text-sm font-extrabold bg-fasty-yellow text-fasty-black disabled:opacity-50"
+                    >
+                      {actingId === estimate.id ? 'Saving…' : `Approve ₹${estimate.pricing.total}`}
+                    </button>
+                  </>
+                ) : (
+                  <button
+                    type="button"
+                    disabled={actingId === estimate.id}
+                    onClick={() => handlePayEstimate(estimate)}
+                    className="w-full px-4 py-3 rounded-xl text-sm font-extrabold bg-fasty-yellow text-fasty-black disabled:opacity-50"
+                  >
+                    {actingId === estimate.id ? 'Opening checkout…' : `Pay ₹${estimate.pricing.total}`}
+                  </button>
+                )}
+              </div>
+            </div>
+          );
+        })}
 
         {/* Tracking timeline */}
         {!isCancelled && (
